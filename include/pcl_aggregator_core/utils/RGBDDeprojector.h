@@ -1,0 +1,14 @@
+//
+// Created by carlostojal on 30-04-2023.
+//
+
+#ifndef PCL_AGGREGATOR_CORE_RGBDDEPROJECTOR_H
+#define PCL_AGGREGATOR_CORE_RGBDDEPROJECTOR_H
+
+
+class RGBDDeprojector {
+
+};
+
+
+#endif //PCL_AGGREGATOR_CORE_RGBDDEPROJECTOR_H
