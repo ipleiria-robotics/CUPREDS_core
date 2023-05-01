@@ -24,3 +24,4 @@ doxygen_add_docs(docs ${PROJECT_SOURCE_DIR})
 
 install(TARGETS pcl_aggregator_core LIBRARY DESTINATION /usr/lib/pcl_aggregator_core)
 install(DIRECTORY ${PUBLIC_HEADERS} DESTINATION /usr/include)
+install(FILES pcl_aggregator_coreConfig.cmake DESTINATION /usr/lib/pcl_aggregator_core)
