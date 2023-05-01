@@ -1,5 +1,10 @@
 //
-// Created by carlostojal on 30-04-2023.
+// Created by carlostojal on 01-05-2023.
 //
 
-#include "../../include/pcl_aggregator_core/utils/RGBDDeprojector.h"
+#include "pcl_aggregator_core/utils/RGBDDeprojector.h"
+
+namespace pcl_aggregator {
+    namespace utils {
+    } // pcl_aggregator
+} // utils

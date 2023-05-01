@@ -4,6 +4,8 @@
 
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 #include <pcl_aggregator_core/utils/Utils.h>
+#include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
+#include <utility>
 
 namespace pcl_aggregator {
     namespace entities {
@@ -73,13 +75,13 @@ namespace pcl_aggregator {
         }
 
         template <typename PointTypeT>
-        void StampedPointCloud<PointTypeT>::assignLabelToPointCloud(typename pcl::PointCloud<PointTypeT>::Ptr cloud, std::uint32_t label) {
+        void StampedPointCloud<PointTypeT>::assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label) {
 
-            setPointCloudLabelCuda(cloud, label);
+            cuda::CUDAPointClouds::setPointCloudLabelCuda(std::move(cloud), label);
         }
 
         template <typename PointTypeT>
-        void StampedPointCloud<PointTypeT>::setOriginTopic(std::string origin) {
+        void StampedPointCloud<PointTypeT>::setOriginTopic(const std::string& origin) {
             this->originTopic = origin;
         }
 

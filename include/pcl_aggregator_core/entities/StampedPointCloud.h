@@ -15,6 +15,10 @@
 namespace pcl_aggregator {
     namespace entities {
 
+        /*! \brief Stamped Point Cloud
+         *         A PointCloud with an associated timestamp. Also has other utilities.
+         * @tparam PointTypeT type of point to store (PointXYZ, PointXYZRGB, etc.)
+         */
         template <typename PointTypeT>
         class StampedPointCloud {
 
@@ -29,39 +33,73 @@ namespace pcl_aggregator {
                 std::string originTopic = POINTCLOUD_ORIGIN_NONE;
 
                 std::uint32_t label; // label used to identify each pointcloud on removal
+
+                /*! \brief Generate a label to the PointCloud based on the origin topic name and timestamp. */
                 std::uint32_t generateLabel();
 
             public:
                 StampedPointCloud(std::string originTopic);
 
+                /*! \brief Get the PointCloud timestamp. */
                 unsigned long long getTimestamp() const;
+                /*! \brief Get a smart pointer to the PointCloud. */
                 typename pcl::PointCloud<PointTypeT>::Ptr getPointCloud() const;
+                /*! \brief Get the origin topic name. */
                 std::string getOriginTopic() const;
+                /*! \brief Get the label of the PointCloud. Should be unique. */
                 std::uint32_t getLabel() const;
-                bool isIcpTransformComputed() const;
+                /*! \brief Set the PointCloud's timestamp. */
                 void setTimestamp(unsigned long long t);
+                /*! \brief Set the PointCloud by smart pointer. This method moves the pointer, does not copy it or increment use count.
+                 * @param cloud The PointCloud smart pointer to move from.
+                 * @param assignGeneratedLabel Assign a generated label or not. Generating the label has an additional overhead, but is usually needed.
+                 * */
                 void setPointCloud(typename pcl::PointCloud<PointTypeT>::Ptr cloud, bool assignGeneratedLabel=true);
-                void setOriginTopic(std::string origin);
+                /*! \brief Set the origin topic name.
+                 * @param origin The topic name.
+                 */
+                void setOriginTopic(const std::string& origin);
 
+                /*! \brief Check if the transform to the robot base frame was computed. */
                 bool isTransformComputed() const;
+                /*! \brief Apply the robot frame transform. */
                 void applyTransform(Eigen::Affine3d tf);
 
-
+                /*! \brief Check if the ICP transform was computed on this PointCloud. */
+                bool isIcpTransformComputed() const;
+                /*! \brief Apply the ICP transform. */
                 void applyIcpTransform(Eigen::Matrix4f tf);
 
-                void assignLabelToPointCloud(typename pcl::PointCloud<PointTypeT>::Ptr cloud, std::uint32_t label);
+                /*! \brief Assign a label to a PointCloud.
+                 *
+                 * @param cloud The PointCloud's smart pointer.
+                 * @param label The 32-bit unsigned label to assign.
+                 */
+                void assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label);
+                /*! \brief Remove points with a given label from the current PointCloud.
+                 *
+                 * @param label The label to remove.
+                 */
                 void removePointsWithLabel(std::uint32_t label);
 
+                /*! \brief A transformation routine.
+                 *         Routine used by some threads to transform the PointCloud in a detached state and/or using CUDA.
+                 */
                 template <typename RoutinePointTypeT>
                 friend void transformPointCloudRoutine(StampedPointCloud<RoutinePointTypeT>* instance  );
 
+                /*! \brief A point removal routine.
+                 *         Routine used by some threads to remove points in a detached state.
+                 */
                 template <typename RoutinePointTypeT>
                 friend void removePointsWithLabelRoutine(StampedPointCloud<RoutinePointTypeT>* instance, std::uint32_t label);
 
         };
 
-        // custom comparison functor between stamped point clouds
-        // they are compared by timestamp
+        /*! \brief Custom comparison functor between stamped point clouds. The comparison criteria is the timestamp.
+         *
+         * @tparam PointTypeT Type of point used by the PointClouds to compare.
+         * */
         template <typename PointTypeT>
         struct CompareStampedPointCloudPointers {
 

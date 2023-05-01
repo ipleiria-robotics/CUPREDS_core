@@ -10,19 +10,23 @@
 
 namespace pcl_aggregator {
     namespace utils {
+        /*! \brief Utils.
+         *         General utilities related primarily to timestamps and PointClouds.
+         *
+         */
         class Utils {
 
             public:
-                // get current unix timestamp in milliseconds
+                /*! \brief Get current UNIX timestamp in milliseconds. */
                 static unsigned long long getCurrentTimeMillis();
 
-                // get age to a timestamp in seconds
+                /*! \brief Get age of a given timestamp in seconds. */
                 static long getAgeInSecs(unsigned long long timestamp);
 
-                // get the timestamp of a given age
+                /*! \brief Get the UNIX timestamp of something with a given age. */
                 static unsigned long long getMaxTimestampForAge(double age);
 
-                // remove the points of a pointcloud from another
+                /*! \brief Remove the points of a PointCloud from another. */
                 static void removePointCloudFromOther(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud,
                                                       pcl::PointCloud<pcl::PointXYZRGBL>::Ptr pointsToRemove);
         };
