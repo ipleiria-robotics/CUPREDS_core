@@ -13,6 +13,9 @@
 #include <pcl/point_types.h>
 #include <pcl_aggregator_core/managers/StreamManager.h>
 
+#define GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE 1
+#define GLOBAL_ICP_MAX_ITERATIONS 10
+
 namespace pcl_aggregator {
     namespace managers {
 

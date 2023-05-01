@@ -153,7 +153,13 @@ namespace pcl_aggregator {
 
         template<typename LabeledPointTypeT>
         void StreamManager<LabeledPointTypeT>::setSensorTransform(const Eigen::Affine3d &transform) {
+
+            std::lock_guard<std::mutex> lock(this->sensorTransformMutex);
+
+            // set the new transform
             this->sensorTransform = transform;
+            this->sensorTransformSet = true;
+            this->computeTransform();
         }
 
         template<typename LabeledPointTypeT>

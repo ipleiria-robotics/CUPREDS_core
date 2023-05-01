@@ -76,7 +76,43 @@ namespace pcl_aggregator {
         }
 
         bool PointCloudsManager::appendToMerged(const pcl::PointCloud<PointTypeT>::Ptr &input) {
+            // align the pointclouds
+            if(!input->empty()) {
+                if(!this->mergedCloud->empty()) {
+                    // create an ICP instance
+                    pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
+                    icp.setInputSource(input);
+                    icp.setInputTarget(this->mergedCloud); // "input" will align to "merged"
+
+                    icp.setMaxCorrespondenceDistance(GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE);
+                    icp.setMaximumIterations(GLOBAL_ICP_MAX_ITERATIONS);
+
+                    icp.align(*this->mergedCloud); // combine the aligned pointclouds on the "merged" instance
+
+                    if (!icp.hasConverged())
+                        *this->mergedCloud += *input; // if alignment was not possible, just add the pointclouds
+
+                    return icp.hasConverged(); // return true if alignment was possible
+
+                } else {
+                    *this->mergedCloud += *input;
+                }
+
+            }
+
             return false;
+        }
+
+        void PointCloudsManager::initStreamManager(const std::string &topicName, double maxAge) {
+            std::lock_guard<std::mutex> lock(this->managersMutex);
+
+            if(this->streamManagers.count(topicName) != 0)
+                return;
+            this->streamManagers[topicName] = std::make_unique<StreamManager<PointTypeT>>(topicName, maxAge);
+        }
+
+        void PointCloudsManager::clearMergedCloud() {
+            this->mergedCloud->clear();
         }
 
 
