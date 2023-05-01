@@ -5,7 +5,6 @@
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 #include <pcl_aggregator_core/utils/Utils.h>
 #include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
-#include <utility>
 
 namespace pcl_aggregator {
     namespace entities {

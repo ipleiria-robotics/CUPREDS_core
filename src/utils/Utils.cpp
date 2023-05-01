@@ -3,7 +3,6 @@
 //
 
 #include <pcl_aggregator_core/utils/Utils.h>
-#include <chrono>
 
 namespace pcl_aggregator {
     namespace utils {
