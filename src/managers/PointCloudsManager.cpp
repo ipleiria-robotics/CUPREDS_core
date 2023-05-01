@@ -31,6 +31,13 @@ namespace pcl_aggregator {
         }
 
         void PointCloudsManager::addCloud(const pcl::PointCloud<PointTypeT>::Ptr &cloud, const std::string &topicName) {
+
+            // check if the pointcloud is null or empty
+            if(cloud == nullptr)
+                return;
+            if(cloud->empty())
+                return;
+
             // the key is not present
             this->initStreamManager(topicName, this->maxAge);
 
