@@ -61,7 +61,7 @@ namespace pcl_aggregator {
         }
 
         template<typename LabeledPointTypeT>
-        void StreamManager<LabeledPointTypeT>::addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud) {
+        void StreamManager<LabeledPointTypeT>::addCloud(const typename pcl::PointCloud<LabeledPointTypeT>::Ptr& cloud) {
             // check the incoming pointcloud for null or empty
             if(cloud == nullptr)
                 return;
@@ -147,7 +147,7 @@ namespace pcl_aggregator {
         }
 
         template<typename LabeledPointTypeT>
-        pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StreamManager<LabeledPointTypeT>::getCloud() const {
+        pcl::PointCloud<LabeledPointTypeT>::Ptr StreamManager<LabeledPointTypeT>::getCloud() const {
             return this->cloud;
         }
 

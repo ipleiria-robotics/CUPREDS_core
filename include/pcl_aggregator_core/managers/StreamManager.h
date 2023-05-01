@@ -72,13 +72,13 @@ namespace pcl_aggregator {
                  * \brief Feed a PointCloud to manage.
                  * @param cloud The PointCloud smart pointer.
                  */
-                void addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud);
+                void addCloud(const typename pcl::PointCloud<LabeledPointTypeT>::Ptr& cloud);
 
                 /*!
                  * \brief Get the merged version of the still valid PointClouds fed into this manager.
                  * @return The merged PointCloud smart pointer.
                  */
-                pcl::PointCloud<pcl::PointXYZRGBL>::Ptr getCloud() const; // returning the pointer prevents massive memory copies
+                pcl::PointCloud<LabeledPointTypeT>::Ptr getCloud() const; // returning the pointer prevents massive memory copies
 
                 /*!
                  * \brief Set the transform between the sensor frame and the robot base frame.

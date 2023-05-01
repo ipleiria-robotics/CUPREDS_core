@@ -7,11 +7,11 @@
 namespace pcl_aggregator {
     namespace utils {
         RGBDDeprojector::RGBDDeprojector() {
-            // TODO: init the pointcloud
+            this->cloud = pcl::PointCloud<pcl::PointXYZRGBL>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBL>());
         }
 
         RGBDDeprojector::~RGBDDeprojector() {
-            // TODO: destroy the pointcloud
+            this->cloud.reset();
         }
 
         Eigen::Matrix3d RGBDDeprojector::getK() const {

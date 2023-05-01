@@ -16,7 +16,7 @@ find_package(Doxygen REQUIRED) # to generate pretty and easy to read documentati
 set(PUBLIC_HEADERS include/pcl_aggregator_core)
 include_directories(include ${PCL_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
 
-add_library(pcl_aggregator_core SHARED src/utils/Utils.cpp src/entities/StampedPointCloud.cpp src/managers/PointCloudsManager.cpp src/PCLRegistrator.cpp src/utils/RGBDDeprojector.cpp src/cuda/CUDAPointClouds.cu src/managers/StreamManager.cpp)
+add_library(pcl_aggregator_core SHARED src/utils/Utils.cpp src/entities/StampedPointCloud.cpp src/PCLRegistrator.cpp src/utils/RGBDDeprojector.cpp src/cuda/CUDAPointClouds.cu src/managers/StreamManager.cpp src/managers/PointCloudsManager.cpp)
 
 target_link_libraries(pcl_aggregator_core ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${Eigen3_LIBRARIES} ${CUDA_LIBRARIES})
 
