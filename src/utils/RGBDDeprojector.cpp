@@ -2,7 +2,7 @@
 // Created by carlostojal on 01-05-2023.
 //
 
-#include "pcl_aggregator_core/utils/RGBDDeprojector.h"
+#include <pcl_aggregator_core/utils/RGBDDeprojector.h>
 
 namespace pcl_aggregator {
     namespace utils {
@@ -55,6 +55,11 @@ namespace pcl_aggregator {
         }
 
         void RGBDDeprojector::deprojectImages() {
+
+            // can't do anything without a depth image
+            if(!this->isDepthImageSet)
+                return;
+
             // TODO: create and call a CUDA kernel to deproject valid pixels into points
         }
 
