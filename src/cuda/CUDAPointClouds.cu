@@ -66,6 +66,8 @@ namespace pcl_aggregator {
                     std::cerr << "Error destroying the CUDA stream: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
+
+                cloud.reset();
             }
 
             __global__ void setPointLabelKernel(pcl::PointXYZRGBL *points, std::uint32_t label, int num_points) {
@@ -131,6 +133,8 @@ namespace pcl_aggregator {
                     std::cerr << "Error destroying the CUDA stream: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
+
+                cloud.reset();
             }
 
             __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4d transform, int num_points) {

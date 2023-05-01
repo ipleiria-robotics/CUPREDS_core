@@ -77,7 +77,7 @@ namespace pcl_aggregator {
         template <typename PointTypeT>
         void StampedPointCloud<PointTypeT>::assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label) {
 
-            cuda::pointclouds::setPointCloudLabelCuda(std::move(cloud), label);
+            cuda::pointclouds::setPointCloudLabelCuda(cloud, label);
         }
 
         template <typename PointTypeT>

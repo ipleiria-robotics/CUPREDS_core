@@ -72,30 +72,25 @@ namespace pcl_aggregator {
                  * \brief Feed a PointCloud to manage.
                  * @param cloud The PointCloud smart pointer.
                  */
-                void addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud);
+                void addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud);
 
                 /*!
                  * \brief Get the merged version of the still valid PointClouds fed into this manager.
                  * @return The merged PointCloud smart pointer.
                  */
-                pcl::PointCloud<pcl::PointXYZRGBL>::Ptr getCloud(); // returning the pointer prevents massive memory copies
+                pcl::PointCloud<pcl::PointXYZRGBL>::Ptr getCloud() const; // returning the pointer prevents massive memory copies
 
                 /*!
                  * \brief Set the transform between the sensor frame and the robot base frame.
                  * @param transform
                  */
-                void setSensorTransform(Eigen::Affine3d transform);
+                void setSensorTransform(const Eigen::Affine3d& transform);
 
                 /*!
                  * \brief Get the max age points live for after being fed.
                  * @return The configured max points age.
                  */
-                double getMaxAge();
-
-                /*!
-                 * \brief Clear the merged PointCloud.
-                 */
-                void clear();
+                double getMaxAge() const;
 
 
             /*!
@@ -108,17 +103,9 @@ namespace pcl_aggregator {
              * @param tf The transform to apply in form of an affine transformation.
              */
             template <typename RoutinePointTypeT>
-            friend void applyTransformRoutine(StreamManager* instance, std::shared_ptr<entities::StampedPointCloud<RoutinePointTypeT>> spcl, Eigen::Affine3d tf);
-
-            /*!
-             * \brief StreamManager cleaning routine.
-             * Method intended to be called from a thread to clear the old points in detached state.
-             *
-             * @tparam RoutinePointTypeT The type of points this StreamManager manages.
-             * @param instance The StreamManager instance pointer to clean.
-             */
-            template <typename RoutinePointTypeT>
-            friend void clearPointCloudsRoutine(StreamManager* instance);
+            friend void applyTransformRoutine(StreamManager* instance,
+                                              const std::shared_ptr<entities::StampedPointCloud<RoutinePointTypeT>>& spcl,
+                                              const Eigen::Affine3d& tf);
 
             /*!
              * \brief Points auto-remove routine after max age.
@@ -130,7 +117,7 @@ namespace pcl_aggregator {
              */
             template <typename RoutinePointTypeT>
             friend void pointCloudAutoRemoveRoutine(StreamManager* instance,
-                                                    std::shared_ptr<entities::StampedPointCloud<RoutinePointTypeT>> spcl);
+                                                    const std::shared_ptr<entities::StampedPointCloud<RoutinePointTypeT>>& spcl);
 
             /*!
              * \brief ICP transform routine.
@@ -141,7 +128,8 @@ namespace pcl_aggregator {
              * @param tf The ICP transform to apply.
              */
             template <typename RoutinePointTypeT>
-            friend void icpTransformPointCloudRoutine(std::shared_ptr<entities::StampedPointCloud<RoutinePointTypeT>> spcl, Eigen::Matrix4f tf);
+            friend void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud<RoutinePointTypeT>>& spcl,
+                                                      const Eigen::Matrix4f& tf);
 
         };
 
