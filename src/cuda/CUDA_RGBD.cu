@@ -9,18 +9,18 @@ namespace pcl_aggregator {
         namespace rgbd {
 
             __host__ void deprojectImages(const cv::Mat& colorImage, const cv::Mat& depthImage, const Eigen::Matrix3d& K, double minDepth, double maxDepth,
-                                 pcl::PointCloud<pcl::PointXYZRGB>::Ptr destination) {
+                                 pcl::PointCloud<pcl::PointXYZRGBL>::Ptr destination) {
                 cudaError_t err;
                 cudaStream_t stream;
 
                 unsigned long long  nPixels = depthImage.total();
                 unsigned long long nValidPoints = 0;
-                pcl::PointXYZRGB* pointArray;
+                pcl::PointXYZRGBL* pointArray;
 
                 // declare device variable
                 unsigned char *d_colorImage;
                 unsigned char *d_depthImage;
-                pcl::PointXYZRGB *d_pointArray;
+                pcl::PointXYZRGBL *d_pointArray;
 
                 unsigned long long *d_nValidPoints;
 
@@ -43,7 +43,7 @@ namespace pcl_aggregator {
                 }
 
                 // allocate the pointcloud on device
-                if((err = cudaMalloc(&d_pointArray, nPixels * sizeof(pcl::PointXYZRGB))) != cudaSuccess) {
+                if((err = cudaMalloc(&d_pointArray, nPixels * sizeof(pcl::PointXYZRGBL))) != cudaSuccess) {
                     std::cerr << "Error allocating pointcloud on device: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
@@ -95,13 +95,13 @@ namespace pcl_aggregator {
                 }
 
                 // allocate a host point array
-                if((pointArray = (pcl::PointXYZRGB*) malloc(nValidPoints * sizeof(pcl::PointXYZRGB))) == nullptr) {
+                if((pointArray = (pcl::PointXYZRGBL*) malloc(nValidPoints * sizeof(pcl::PointXYZRGBL))) == nullptr) {
                     std::cerr << "Error allocating host memory for the points: " << strerror(errno) << std::endl;
                     return;
                 }
 
                 // copy the point array back to the host
-                if((err = cudaMemcpy(pointArray, d_pointArray, nPixels * sizeof(pcl::PointXYZRGB), cudaMemcpyDeviceToHost)) != cudaSuccess) {
+                if((err = cudaMemcpy(pointArray, d_pointArray, nPixels * sizeof(pcl::PointXYZRGBL), cudaMemcpyDeviceToHost)) != cudaSuccess) {
                     std::cerr << "Error copying the point array back to the host: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
@@ -142,7 +142,7 @@ namespace pcl_aggregator {
 
             __global__ void deprojectImagesKernel(unsigned char *colorImage, unsigned char *depthImage, unsigned int width,
                                                   unsigned int height, const Eigen::Matrix3d& K_inv,
-                                                  double minDepth, double maxDepth, pcl::PointXYZRGB *pointArray,
+                                                  double minDepth, double maxDepth, pcl::PointXYZRGBL *pointArray,
                                                   unsigned long long *nValidPoints) {
 
                 // x: row

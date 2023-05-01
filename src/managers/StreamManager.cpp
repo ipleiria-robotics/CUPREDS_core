@@ -7,43 +7,36 @@
 namespace pcl_aggregator {
     namespace managers {
 
-        template<typename LabeledPointTypeT>
-        StreamManager<LabeledPointTypeT>::StreamManager(std::string topicName, double maxAge) {
+        StreamManager::StreamManager(std::string topicName, double maxAge) {
             this->topicName = topicName;
-            this->cloud = std::make_shared<entities::StampedPointCloud<LabeledPointTypeT>>(topicName);
+            this->cloud = std::make_shared<entities::StampedPointCloud>(topicName);
             this->maxAge = maxAge;
         }
 
-        template<typename LabeledPointTypeT>
-        StreamManager<LabeledPointTypeT>::~StreamManager() {
+        StreamManager::~StreamManager() {
             this->cloud.reset();
         }
 
-        template<typename LabeledPointTypeT>
-        bool StreamManager<LabeledPointTypeT>::operator==(const StreamManager &other) const {
+        bool StreamManager::operator==(const StreamManager &other) const {
             return this->topicName == other.topicName;
         }
 
-        template<typename LabeledPointTypeT>
-        void StreamManager<LabeledPointTypeT>::computeTransform() {
+        void StreamManager::computeTransform() {
             while(this->cloudsNotTransformed.size() > 0) {
 
                 // get the first element
-                std::shared_ptr<entities::StampedPointCloud<LabeledPointTypeT>> spcl = this->clouds_not_transformed.front();
+                std::shared_ptr<entities::StampedPointCloud> spcl = this->cloudsNotTransformed.front();
                 spcl->applyTransform(this->sensorTransform);
 
                 // add to the set
                 this->clouds.insert(spcl);
 
                 // remove from the queue
-                this->clouds_not_transformed.pop();
+                this->cloudsNotTransformed.pop();
             }
-
-            this->pointCloudSet = true;
         }
 
-        template<typename LabeledPointTypeT>
-        void StreamManager<LabeledPointTypeT>::removePointCloud(std::shared_ptr<entities::StampedPointCloud<LabeledPointTypeT>> spcl) {
+        void StreamManager::removePointCloud(std::shared_ptr<entities::StampedPointCloud> spcl) {
             // remove points with that label from the merged pointcloud
             this->cloud->removePointsWithLabel(spcl->getLabel());
 
@@ -55,13 +48,11 @@ namespace pcl_aggregator {
                 if((*it)->getLabel() == spcl->getLabel()) {
                     // remove the pointcloud from the set
                     this->clouds.erase(it);
-                    it->reset();
                 }
             }
         }
 
-        template<typename LabeledPointTypeT>
-        void StreamManager<LabeledPointTypeT>::addCloud(const typename pcl::PointCloud<LabeledPointTypeT>::Ptr& cloud) {
+        void StreamManager::addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud) {
             // check the incoming pointcloud for null or empty
             if(cloud == nullptr)
                 return;
@@ -69,20 +60,20 @@ namespace pcl_aggregator {
                 return;
 
             // create a stamped point cloud object to keep this pointcloud
-            std::shared_ptr<entities::StampedPointCloud<LabeledPointTypeT>> spcl =
-                    std::make_shared<entities::StampedPointCloud<LabeledPointTypeT>>(this->topicName);
+            std::shared_ptr<entities::StampedPointCloud> spcl =
+                    std::make_shared<entities::StampedPointCloud>(this->topicName);
             spcl->setPointCloud(cloud);
 
             if(!this->sensorTransformSet) {
                 // add the pointcloud to the queue
-                this->clouds_not_transformed.push(spcl);
+                this->cloudsNotTransformed.push(spcl);
                 return;
             }
 
             // transform the incoming pointcloud and add directly to the set
 
             // start a thread to transform the pointcloud
-            auto transformRoutine = [] (StreamManager* instance, const std::shared_ptr<entities::StampedPointCloud<LabeledPointTypeT>>& spcl, const Eigen::Affine3d& tf) {
+            auto transformRoutine = [] (StreamManager* instance, const std::shared_ptr<entities::StampedPointCloud>& spcl, const Eigen::Affine3d& tf) {
                 applyTransformRoutine(instance, spcl, tf);
             };
             std::thread transformationThread(transformRoutine, this, spcl, sensorTransform);
@@ -109,7 +100,7 @@ namespace pcl_aggregator {
                 if(!spcl->getPointCloud()->empty()) {
                     this->cloudMutex.lock();
                     if(!this->cloud->getPointCloud()->empty()) {
-                        pcl::IterativeClosestPoint<LabeledPointTypeT,LabeledPointTypeT> icp;
+                        pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
                         icp.setInputSource(spcl->getPointCloud());
                         icp.setInputTarget(this->cloud->getPointCloud());
@@ -132,7 +123,7 @@ namespace pcl_aggregator {
 
                     // start the pointcloud recycling thread
                     auto autoRemoveRoutine = [] (StreamManager* instance,
-                                                 const std::shared_ptr<entities::StampedPointCloud<LabeledPointTypeT>>& spcl) {
+                                                 const std::shared_ptr<entities::StampedPointCloud>& spcl) {
                         pointCloudAutoRemoveRoutine(instance, spcl);
                     };
                     std::thread spclRecyclingThread(autoRemoveRoutine, this, spcl);
@@ -146,13 +137,11 @@ namespace pcl_aggregator {
 
         }
 
-        template<typename LabeledPointTypeT>
-        pcl::PointCloud<LabeledPointTypeT>::Ptr StreamManager<LabeledPointTypeT>::getCloud() const {
-            return this->cloud;
+        pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StreamManager::getCloud() const {
+            return this->cloud->getPointCloud();
         }
 
-        template<typename LabeledPointTypeT>
-        void StreamManager<LabeledPointTypeT>::setSensorTransform(const Eigen::Affine3d &transform) {
+        void StreamManager::setSensorTransform(const Eigen::Affine3d &transform) {
 
             std::lock_guard<std::mutex> lock(this->sensorTransformMutex);
 
@@ -162,34 +151,27 @@ namespace pcl_aggregator {
             this->computeTransform();
         }
 
-        template<typename LabeledPointTypeT>
-        double StreamManager<LabeledPointTypeT>::getMaxAge() const {
+        double StreamManager::getMaxAge() const {
             return this->maxAge;
         }
 
-        template <typename RoutinePointTypeT>
-        void applyTransformRoutine(StreamManager<RoutinePointTypeT> *instance,
-                                   const std::shared_ptr<entities::StampedPointCloud<RoutinePointTypeT>>& spcl,
+        void applyTransformRoutine(StreamManager *instance,
+                                   const std::shared_ptr<entities::StampedPointCloud>& spcl,
                                    const Eigen::Affine3d& tf) {
             spcl->applyTransform(tf);
         }
 
-        template <typename RoutinePointTypeT>
-        void pointCloudAutoRemoveRoutine(StreamManager<RoutinePointTypeT>* instance,
-                                                const std::shared_ptr<entities::StampedPointCloud<RoutinePointTypeT>>& spcl) {
+        void pointCloudAutoRemoveRoutine(StreamManager* instance,
+                                                const std::shared_ptr<entities::StampedPointCloud>& spcl) {
             // sleep for the max age
             std::this_thread::sleep_for(std::chrono::milliseconds(
-                    static_cast<long long>(instance->max_age * 1000)));
+                    static_cast<long long>(instance->maxAge * 1000)));
 
             // call the pointcloud removal method
             instance->removePointCloud(spcl);
-
-            // free the pointer
-            spcl.reset();
         }
 
-        template <typename RoutinePointTypeT>
-        void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud<RoutinePointTypeT>>& spcl,
+        void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud>& spcl,
                                            const Eigen::Matrix4f& tf) {
             spcl->applyIcpTransform(tf);
         }

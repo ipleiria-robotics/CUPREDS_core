@@ -19,8 +19,6 @@
 namespace pcl_aggregator {
     namespace managers {
 
-        typedef pcl::PointXYZRGB PointTypeT;
-
         /*!
          * \brief Manage PointClouds coming from several sensors, like several LiDARs and depth cameras.
          *
@@ -34,9 +32,9 @@ namespace pcl_aggregator {
                 /*! \brief The configured maximum point age. */
                 double maxAge;
                 /*! \brief Hash map of managers, one for each sensor (topic). */
-                std::unordered_map<std::string,std::unique_ptr<StreamManager<PointTypeT>>> streamManagers;
+                std::unordered_map<std::string,std::unique_ptr<StreamManager>> streamManagers;
                 /*! \brief Smart pointer to the merged PointCloud. */
-                pcl::PointCloud<PointTypeT>::Ptr mergedCloud;
+                pcl::PointCloud<pcl::PointXYZRGBL>::Ptr mergedCloud;
 
                 /*! \brief Mutex which manages concurrent access to the managers hash map. */
                 std::mutex managersMutex;
@@ -46,7 +44,7 @@ namespace pcl_aggregator {
                  * @param input The shared pointer to the input PointCloud.
                  * @return Flag denoting if ICP was possible or not.
                  */
-                bool appendToMerged(const pcl::PointCloud<PointTypeT>::Ptr& input);
+                bool appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& input);
 
                 /*! \brief Clear the points of the merged PointCloud. */
                 void clearMergedCloud();
@@ -70,7 +68,7 @@ namespace pcl_aggregator {
                  * @param cloud Smart pointer to the new pointcloud.
                  * @param topicName The name of the topic from which the pointcloud came from. Will be used for identification.
                  */
-                void addCloud(const pcl::PointCloud<PointTypeT>::Ptr& cloud, const std::string& topicName);
+                void addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const std::string& topicName);
 
                 /*! \brief Set the transform of a given sensor, identified by the topic name, to the robot base frame.
                  *
@@ -79,7 +77,7 @@ namespace pcl_aggregator {
                  */
                 void setTransform(const Eigen::Affine3d& transform, const std::string& topicName);
 
-                pcl::PointCloud<PointTypeT> getMergedCloud();
+                pcl::PointCloud<pcl::PointXYZRGBL> getMergedCloud();
 
         };
 

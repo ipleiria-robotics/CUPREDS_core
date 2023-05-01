@@ -9,20 +9,18 @@
 namespace pcl_aggregator {
     namespace entities {
 
-        template <typename PointTypeT>
-        StampedPointCloud<PointTypeT>::StampedPointCloud(std::string originTopic) {
+        StampedPointCloud::StampedPointCloud(std::string originTopic) {
             this->timestamp = utils::Utils::getCurrentTimeMillis();
 
             this->setOriginTopic(originTopic);
 
             this->label = generateLabel();
 
-            this->cloud = pcl::PointCloud<PointTypeT>::Ptr(new pcl::PointCloud<PointTypeT>());
+            this->cloud = pcl::PointCloud<pcl::PointXYZRGBL>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBL>());
         }
 
         // generate a 32-bit label and assign
-        template <typename PointTypeT>
-        std::uint32_t StampedPointCloud<PointTypeT>::generateLabel() {
+        std::uint32_t StampedPointCloud::generateLabel() {
 
             std::string combined = this->originTopic + std::to_string(this->timestamp);
 
@@ -32,76 +30,64 @@ namespace pcl_aggregator {
             return hash_value;
         }
 
-        template <typename PointTypeT>
-        unsigned long long StampedPointCloud<PointTypeT>::getTimestamp() const {
+        unsigned long long StampedPointCloud::getTimestamp() const {
             return this->timestamp;
         }
 
-        template <typename PointTypeT>
-        typename pcl::PointCloud<PointTypeT>::Ptr StampedPointCloud<PointTypeT>::getPointCloud() const {
+        typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StampedPointCloud::getPointCloud() const {
             return this->cloud;
         }
 
-        template <typename PointTypeT>
-        std::string StampedPointCloud<PointTypeT>::getOriginTopic() const {
+        std::string StampedPointCloud::getOriginTopic() const {
             return this->originTopic;
         }
 
-        template <typename PointTypeT>
-        std::uint32_t StampedPointCloud<PointTypeT>::getLabel() const {
+        std::uint32_t StampedPointCloud::getLabel() const {
             return this->label;
         }
 
-        template <typename PointTypeT>
-        bool StampedPointCloud<PointTypeT>::isIcpTransformComputed() const {
+        bool StampedPointCloud::isIcpTransformComputed() const {
             return icpTransformComputed;
         }
 
-        template <typename PointTypeT>
-        void StampedPointCloud<PointTypeT>::setTimestamp(unsigned long long t) {
+        void StampedPointCloud::setTimestamp(unsigned long long t) {
             this->timestamp = t;
         }
 
-        template <typename PointTypeT>
-        void StampedPointCloud<PointTypeT>::setPointCloud(typename pcl::PointCloud<PointTypeT>::Ptr c, bool assignGeneratedLabel) {
+        void StampedPointCloud::setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr c, bool assignGeneratedLabel) {
             this->cloud.reset();
 
-            this->cloudSet = true;
             this->cloud = c;
 
             if(assignGeneratedLabel)
                 this->assignLabelToPointCloud(this->cloud, this->label);
         }
 
-        template <typename PointTypeT>
-        void StampedPointCloud<PointTypeT>::assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label) {
+        void StampedPointCloud::assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label) {
 
             cuda::pointclouds::setPointCloudLabelCuda(cloud, label);
         }
 
-        template <typename PointTypeT>
-        void StampedPointCloud<PointTypeT>::setOriginTopic(const std::string& origin) {
+        void StampedPointCloud::setOriginTopic(const std::string& origin) {
             this->originTopic = origin;
         }
 
-        template <typename PointTypeT>
-        bool StampedPointCloud<PointTypeT>::isTransformComputed() const {
+        bool StampedPointCloud::isTransformComputed() const {
             return this->transformComputed;
         }
 
-        template <typename PointTypeT>
-        void StampedPointCloud<PointTypeT>::applyTransform(Eigen::Affine3d tf) {
-            if(this->cloudSet) {
+        void StampedPointCloud::applyTransform(Eigen::Affine3d tf) {
 
-                transformPointCloudCuda(this->cloud, tf);
+            if(this->cloud == nullptr)
+                return;
 
-                // pcl::transformPointCloud(*this->cloud, *this->cloud, tf);
-                this->transformComputed = true;
-            }
+            cuda::pointclouds::transformPointCloudCuda(this->cloud, tf);
+
+            // pcl::transformPointCloud(*this->cloud, *this->cloud, tf);
+            this->transformComputed = true;
         }
 
-        template <typename PointTypeT>
-        void StampedPointCloud<PointTypeT>::applyIcpTransform(Eigen::Matrix4f tf) {
+        void StampedPointCloud::applyIcpTransform(Eigen::Matrix4f tf) {
 
             if(!icpTransformComputed) {
 
@@ -114,8 +100,7 @@ namespace pcl_aggregator {
             }
         }
 
-        template <typename PointTypeT>
-        void StampedPointCloud<PointTypeT>::removePointsWithLabel(std::uint32_t label) {
+        void StampedPointCloud::removePointsWithLabel(std::uint32_t label) {
 
             for(auto it = this->cloud->begin(); it != this->cloud->end(); it++) {
                 if(it->label == label) {

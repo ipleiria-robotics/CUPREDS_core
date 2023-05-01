@@ -28,7 +28,7 @@ namespace pcl_aggregator {
              */
             __host__ void deprojectImages(const cv::Mat& colorImage, const cv::Mat& depthImage, const Eigen::Matrix3d& K,
                                           double minDepth, double maxDepth,
-                                          pcl::PointCloud<pcl::PointXYZRGB>::Ptr destination);
+                                          pcl::PointCloud<pcl::PointXYZRGBL>::Ptr destination);
 
 
             /*! \brief The deprojection kernel, responsible by deprojecting an individual pixel.
@@ -47,7 +47,7 @@ namespace pcl_aggregator {
              */
             __global__ void deprojectImagesKernel(unsigned char *colorImage, unsigned char *depthImage, unsigned int width,
                                                   unsigned int height, const Eigen::Matrix3d& K_inv,
-                                                  double minDepth, double maxDepth, pcl::PointXYZRGB *pointArray,
+                                                  double minDepth, double maxDepth, pcl::PointXYZRGBL *pointArray,
                                                   unsigned long long *nValidPoints);
         }
     } // pcl_aggregator

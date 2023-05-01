@@ -11,7 +11,7 @@ namespace pcl_aggregator {
             this->nSources = nSources;
 
             // initialize empty merged cloud
-            this->mergedCloud = pcl::PointCloud<PointTypeT>::Ptr(new pcl::PointCloud<PointTypeT>());
+            this->mergedCloud = pcl::PointCloud<pcl::PointXYZRGBL>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBL>());
 
             this->maxAge = maxAge;
         }
@@ -30,7 +30,7 @@ namespace pcl_aggregator {
             return this->nSources;
         }
 
-        void PointCloudsManager::addCloud(const pcl::PointCloud<PointTypeT>::Ptr &cloud, const std::string &topicName) {
+        void PointCloudsManager::addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &cloud, const std::string &topicName) {
 
             // check if the pointcloud is null or empty
             if(cloud == nullptr)
@@ -51,7 +51,7 @@ namespace pcl_aggregator {
             this->streamManagers[topicName]->setSensorTransform(transform);
         }
 
-        pcl::PointCloud<PointTypeT> PointCloudsManager::getMergedCloud() {
+        pcl::PointCloud<pcl::PointXYZRGBL> PointCloudsManager::getMergedCloud() {
             // clear the old merged cloud
             this->clearMergedCloud();
 
@@ -75,12 +75,12 @@ namespace pcl_aggregator {
             return *this->mergedCloud;
         }
 
-        bool PointCloudsManager::appendToMerged(const pcl::PointCloud<PointTypeT>::Ptr &input) {
+        bool PointCloudsManager::appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &input) {
             // align the pointclouds
             if(!input->empty()) {
                 if(!this->mergedCloud->empty()) {
                     // create an ICP instance
-                    pcl::IterativeClosestPoint<pcl::PointXYZRGB, pcl::PointXYZRGB> icp;
+                    pcl::IterativeClosestPoint<pcl::PointXYZRGBL, pcl::PointXYZRGBL> icp;
                     icp.setInputSource(input);
                     icp.setInputTarget(this->mergedCloud); // "input" will align to "merged"
 
@@ -108,7 +108,7 @@ namespace pcl_aggregator {
 
             if(this->streamManagers.count(topicName) != 0)
                 return;
-            this->streamManagers[topicName] = std::make_unique<StreamManager<PointTypeT>>(topicName, maxAge);
+            this->streamManagers[topicName] = std::make_unique<StreamManager>(topicName, maxAge);
         }
 
         void PointCloudsManager::clearMergedCloud() {
