@@ -8,6 +8,7 @@
 #include <cuda_runtime.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <eigen3/Eigen/Dense>
 
 namespace pcl_aggregator {
     namespace cuda {
