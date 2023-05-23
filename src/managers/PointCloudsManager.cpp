@@ -7,6 +7,30 @@
 namespace pcl_aggregator {
     namespace managers {
 
+        void memoryMonitoringRoutine(PointCloudsManager *instance) {
+
+            while(instance->keepThreadAlive) {
+                // lock access to the pointcloud
+                std::lock_guard<std::mutex> lock(instance->cloudMutex);
+
+                // get size in MB
+                size_t cloudSize = instance->mergedCloud->points.size() * sizeof(pcl::PointXYZRGBL) / 1000;
+
+                // how many points need to be removed to match the maximum size or less?
+                ssize_t pointsToRemove = ceil(
+                        (float) (cloudSize - instance->maxMemory) * 1000 / sizeof(pcl::PointXYZRGBL));
+
+                if (pointsToRemove > 0) {
+                    // remove the points needed if the number of points exceed the maximum
+                    for (size_t i = 0; i < pointsToRemove; i++)
+                        instance->mergedCloud->points.pop_back();
+                }
+
+                // run the thread routine each second
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        }
+
         PointCloudsManager::PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory) {
             this->nSources = nSources;
 
@@ -14,6 +38,11 @@ namespace pcl_aggregator {
             this->mergedCloud = pcl::PointCloud<pcl::PointXYZRGBL>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBL>());
 
             this->maxAge = maxAge;
+            this->maxMemory = maxMemory;
+
+            // start the memory monitoring thread
+            this->memoryMonitoringThread = std::thread(memoryMonitoringRoutine, this);
+            this->memoryMonitoringThread.detach();
         }
 
         PointCloudsManager::~PointCloudsManager() {
@@ -24,6 +53,10 @@ namespace pcl_aggregator {
             for(auto iter = this->streamManagers.begin(); iter != this->streamManagers.end(); ++iter) {
                 iter->second.reset();
             }
+
+            // wait for the memory monitoring thread
+            this->keepThreadAlive = false;
+            this->memoryMonitoringThread.join();
         }
 
         size_t PointCloudsManager::getNClouds() const {
@@ -61,7 +94,10 @@ namespace pcl_aggregator {
             /* TODO: review performance of only perform merging on demand
              * vs merging the pointclouds and removing as needed every time
             */
+            // lock access to the managers map
             std::lock_guard<std::mutex> lock(this->managersMutex);
+            // lock access to the merged pointcloud pointer
+            std::lock_guard<std::mutex> cloudLock(this->cloudMutex);
             for(auto iter = this->streamManagers.begin(); iter != this->streamManagers.end(); ++iter) {
                 if(firstCloud) {
                     this->mergedCloud = iter->second->getCloud();
@@ -112,13 +148,12 @@ namespace pcl_aggregator {
         }
 
         void PointCloudsManager::clearMergedCloud() {
+
+            // lock access to the pointcloud pointer
+            std::lock_guard<std::mutex> lock(this->cloudMutex);
+
             this->mergedCloud->clear();
         }
-
-        void memoryMonitoringRoutine(PointCloudsManager *instance) {
-             // TODO
-        }
-
 
     } // pcl_aggregator
 } // managers

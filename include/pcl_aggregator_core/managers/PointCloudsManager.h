@@ -32,6 +32,8 @@ namespace pcl_aggregator {
                 size_t nSources;
                 /*! \brief The configured maximum point age. */
                 double maxAge;
+                /*! \brief Configured max memory to be consumed by a PointCloud in MB. */
+                size_t maxMemory;
                 /*! \brief Hash map of managers, one for each sensor (topic). */
                 std::unordered_map<std::string,std::unique_ptr<StreamManager>> streamManagers;
                 /*! \brief Smart pointer to the merged PointCloud. */
@@ -40,8 +42,13 @@ namespace pcl_aggregator {
                 /*! \brief Mutex which manages concurrent access to the managers hash map. */
                 std::mutex managersMutex;
 
+                /*! \brief Mutex which manager concurrent access to the merged PointCloud pointer. */
+                std::mutex cloudMutex;
+
                 /*! \brief Thread which monitors the PointCloud's memory usage. */
                 std::thread memoryMonitoringThread;
+                /*!\brief Flag to determine if the thread should be stopped or not. */
+                bool keepThreadAlive = true;
 
                 /*! \brief Append the points of one PointCloud to the merged version of this manager.
                  *
