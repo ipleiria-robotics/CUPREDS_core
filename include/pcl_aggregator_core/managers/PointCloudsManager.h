@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <cstddef>
 #include <mutex>
+#include <thread>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_aggregator_core/managers/StreamManager.h>
@@ -39,6 +40,9 @@ namespace pcl_aggregator {
                 /*! \brief Mutex which manages concurrent access to the managers hash map. */
                 std::mutex managersMutex;
 
+                /*! \brief Thread which monitors the PointCloud's memory usage. */
+                std::thread memoryMonitoringThread;
+
                 /*! \brief Append the points of one PointCloud to the merged version of this manager.
                  *
                  * @param input The shared pointer to the input PointCloud.
@@ -57,7 +61,7 @@ namespace pcl_aggregator {
                 void initStreamManager(const std::string& topicName, double maxAge);
 
             public:
-                PointCloudsManager(size_t nSources, double maxAge);
+                PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory);
                 ~PointCloudsManager();
 
                 /*! \brief Get the number of sensors/streams being managed. */
@@ -78,6 +82,14 @@ namespace pcl_aggregator {
                 void setTransform(const Eigen::Affine3d& transform, const std::string& topicName);
 
                 pcl::PointCloud<pcl::PointXYZRGBL> getMergedCloud();
+
+            /*! \brief Memory monitoring routine.
+             *
+             * When a PointCloud reaches the defined max size, some points are removed. It runs contantly on a thread.
+             *
+             * @param instance Pointer to the PointCloudsManager instance.
+             * */
+            friend void memoryMonitoringRoutine(PointCloudsManager* instance);
 
         };
 

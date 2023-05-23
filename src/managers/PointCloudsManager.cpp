@@ -7,7 +7,7 @@
 namespace pcl_aggregator {
     namespace managers {
 
-        PointCloudsManager::PointCloudsManager(size_t nSources, double maxAge) {
+        PointCloudsManager::PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory) {
             this->nSources = nSources;
 
             // initialize empty merged cloud
@@ -113,6 +113,10 @@ namespace pcl_aggregator {
 
         void PointCloudsManager::clearMergedCloud() {
             this->mergedCloud->clear();
+        }
+
+        void memoryMonitoringRoutine(PointCloudsManager *instance) {
+             // TODO
         }
 
 
