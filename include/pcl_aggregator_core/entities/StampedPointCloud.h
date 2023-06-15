@@ -17,15 +17,13 @@ namespace pcl_aggregator {
 
         /*! \brief Stamped Point Cloud
          *         A PointCloud with an associated timestamp. Also has other utilities.
-         * @tparam PointTypeT type of point to store (PointXYZ, PointXYZRGB, etc.)
          */
-        template <typename PointTypeT>
         class StampedPointCloud {
 
             private:
                 unsigned long long timestamp;
 
-                typename pcl::PointCloud<PointTypeT>::Ptr cloud = nullptr;
+                typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud = nullptr;
                 bool transformComputed = false; // is the transform to the robot frame computed?
                 bool icpTransformComputed = false; // is the transform computed by ICP computed?
 
@@ -43,7 +41,7 @@ namespace pcl_aggregator {
                 /*! \brief Get the PointCloud timestamp. */
                 unsigned long long getTimestamp() const;
                 /*! \brief Get a smart pointer to the PointCloud. */
-                typename pcl::PointCloud<PointTypeT>::Ptr getPointCloud() const;
+                typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr getPointCloud() const;
                 /*! \brief Get the origin topic name. */
                 std::string getOriginTopic() const;
                 /*! \brief Get the label of the PointCloud. Should be unique. */
@@ -54,7 +52,7 @@ namespace pcl_aggregator {
                  * @param cloud The PointCloud smart pointer to move from.
                  * @param assignGeneratedLabel Assign a generated label or not. Generating the label has an additional overhead, but is usually needed.
                  * */
-                void setPointCloud(typename pcl::PointCloud<PointTypeT>::Ptr cloud, bool assignGeneratedLabel=true);
+                void setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, bool assignGeneratedLabel=true);
                 /*! \brief Set the origin topic name.
                  * @param origin The topic name.
                  */
@@ -85,25 +83,19 @@ namespace pcl_aggregator {
                 /*! \brief A transformation routine.
                  *         Routine used by some threads to transform the PointCloud in a detached state and/or using CUDA.
                  */
-                template <typename RoutinePointTypeT>
-                friend void transformPointCloudRoutine(StampedPointCloud<RoutinePointTypeT>* instance  );
+                friend void transformPointCloudRoutine(StampedPointCloud* instance  );
 
                 /*! \brief A point removal routine.
                  *         Routine used by some threads to remove points in a detached state.
                  */
-                template <typename RoutinePointTypeT>
-                friend void removePointsWithLabelRoutine(StampedPointCloud<RoutinePointTypeT>* instance, std::uint32_t label);
+                friend void removePointsWithLabelRoutine(StampedPointCloud* instance, std::uint32_t label);
 
         };
 
-        /*! \brief Custom comparison functor between stamped point clouds. The comparison criteria is the timestamp.
-         *
-         * @tparam PointTypeT Type of point used by the PointClouds to compare.
-         * */
-        template <typename PointTypeT>
+        /*! \brief Custom comparison functor between stamped point clouds. The comparison criteria is the timestamp. */
         struct CompareStampedPointCloudPointers {
 
-            bool operator()(std::shared_ptr<StampedPointCloud<PointTypeT>> first, std::shared_ptr<StampedPointCloud<PointTypeT>> second) const {
+            bool operator()(std::shared_ptr<StampedPointCloud> first, std::shared_ptr<StampedPointCloud> second) const {
                 return first->getTimestamp() < second->getTimestamp();
             }
         };

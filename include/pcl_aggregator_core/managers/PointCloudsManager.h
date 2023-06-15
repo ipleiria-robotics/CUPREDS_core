@@ -9,14 +9,16 @@
 #include <unordered_map>
 #include <cstddef>
 #include <mutex>
+#include <thread>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_aggregator_core/managers/StreamManager.h>
 
+#define GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE 1
+#define GLOBAL_ICP_MAX_ITERATIONS 10
+
 namespace pcl_aggregator {
     namespace managers {
-
-        typedef pcl::PointXYZRGB PointTypeT;
 
         /*!
          * \brief Manage PointClouds coming from several sensors, like several LiDARs and depth cameras.
@@ -30,20 +32,30 @@ namespace pcl_aggregator {
                 size_t nSources;
                 /*! \brief The configured maximum point age. */
                 double maxAge;
+                /*! \brief Configured max memory to be consumed by a PointCloud in MB. */
+                size_t maxMemory;
                 /*! \brief Hash map of managers, one for each sensor (topic). */
-                std::unordered_map<std::string,std::unique_ptr<StreamManager<PointTypeT>>> streamManagers;
+                std::unordered_map<std::string,std::unique_ptr<StreamManager>> streamManagers;
                 /*! \brief Smart pointer to the merged PointCloud. */
-                pcl::PointCloud<PointTypeT>::Ptr mergedCloud;
+                pcl::PointCloud<pcl::PointXYZRGBL>::Ptr mergedCloud;
 
                 /*! \brief Mutex which manages concurrent access to the managers hash map. */
                 std::mutex managersMutex;
+
+                /*! \brief Mutex which manager concurrent access to the merged PointCloud pointer. */
+                std::mutex cloudMutex;
+
+                /*! \brief Thread which monitors the PointCloud's memory usage. */
+                std::thread memoryMonitoringThread;
+                /*!\brief Flag to determine if the thread should be stopped or not. */
+                bool keepThreadAlive = true;
 
                 /*! \brief Append the points of one PointCloud to the merged version of this manager.
                  *
                  * @param input The shared pointer to the input PointCloud.
                  * @return Flag denoting if ICP was possible or not.
                  */
-                bool appendToMerged(const pcl::PointCloud<PointTypeT>::Ptr& input);
+                bool appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& input);
 
                 /*! \brief Clear the points of the merged PointCloud. */
                 void clearMergedCloud();
@@ -56,7 +68,7 @@ namespace pcl_aggregator {
                 void initStreamManager(const std::string& topicName, double maxAge);
 
             public:
-                PointCloudsManager(size_t nSources, double maxAge);
+                PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory);
                 ~PointCloudsManager();
 
                 /*! \brief Get the number of sensors/streams being managed. */
@@ -67,7 +79,7 @@ namespace pcl_aggregator {
                  * @param cloud Smart pointer to the new pointcloud.
                  * @param topicName The name of the topic from which the pointcloud came from. Will be used for identification.
                  */
-                void addCloud(const pcl::PointCloud<PointTypeT>::Ptr& cloud, const std::string& topicName);
+                void addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const std::string& topicName);
 
                 /*! \brief Set the transform of a given sensor, identified by the topic name, to the robot base frame.
                  *
@@ -76,7 +88,15 @@ namespace pcl_aggregator {
                  */
                 void setTransform(const Eigen::Affine3d& transform, const std::string& topicName);
 
-                pcl::PointCloud<PointTypeT> getMergedCloud();
+                pcl::PointCloud<pcl::PointXYZRGBL> getMergedCloud();
+
+            /*! \brief Memory monitoring routine.
+             *
+             * When a PointCloud reaches the defined max size, some points are removed. It runs contantly on a thread.
+             *
+             * @param instance Pointer to the PointCloudsManager instance.
+             * */
+            friend void memoryMonitoringRoutine(PointCloudsManager* instance);
 
         };
 
