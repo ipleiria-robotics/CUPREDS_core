@@ -5,6 +5,7 @@
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 #include <pcl_aggregator_core/utils/Utils.h>
 #include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
+#include <utility>
 
 namespace pcl_aggregator {
     namespace entities {
@@ -54,18 +55,20 @@ namespace pcl_aggregator {
             this->timestamp = t;
         }
 
-        void StampedPointCloud::setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr c, bool assignGeneratedLabel) {
+        void StampedPointCloud::setPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& c, bool assignGeneratedLabel) {
+            // free the old pointcloud
             this->cloud.reset();
 
+            // set the new
             this->cloud = c;
 
             if(assignGeneratedLabel)
-                this->assignLabelToPointCloud(this->cloud, this->label);
+                StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
         }
 
         void StampedPointCloud::assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label) {
 
-            cuda::pointclouds::setPointCloudLabelCuda(cloud, label);
+            cuda::pointclouds::setPointCloudLabelCuda(std::move(cloud), label);
         }
 
         void StampedPointCloud::setOriginTopic(const std::string& origin) {

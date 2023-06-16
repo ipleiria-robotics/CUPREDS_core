@@ -52,7 +52,7 @@ namespace pcl_aggregator {
                  * @param cloud The PointCloud smart pointer to move from.
                  * @param assignGeneratedLabel Assign a generated label or not. Generating the label has an additional overhead, but is usually needed.
                  * */
-                void setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, bool assignGeneratedLabel=true);
+                void setPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, bool assignGeneratedLabel=true);
                 /*! \brief Set the origin topic name.
                  * @param origin The topic name.
                  */
@@ -73,7 +73,7 @@ namespace pcl_aggregator {
                  * @param cloud The PointCloud's smart pointer.
                  * @param label The 32-bit unsigned label to assign.
                  */
-                void assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label);
+                static void assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label);
                 /*! \brief Remove points with a given label from the current PointCloud.
                  *
                  * @param label The label to remove.
