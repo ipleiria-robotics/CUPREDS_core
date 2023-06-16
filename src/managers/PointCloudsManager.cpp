@@ -98,12 +98,12 @@ namespace pcl_aggregator {
             std::lock_guard<std::mutex> lock(this->managersMutex);
             // lock access to the merged pointcloud pointer
             std::lock_guard<std::mutex> cloudLock(this->cloudMutex);
-            for(auto iter = this->streamManagers.begin(); iter != this->streamManagers.end(); ++iter) {
+            for(auto & streamManager : this->streamManagers) {
                 if(firstCloud) {
-                    this->mergedCloud = iter->second->getCloud();
+                    this->mergedCloud = streamManager.second->getCloud();
                     firstCloud = false;
                 } else {
-                    this->appendToMerged(iter->second->getCloud());
+                    this->appendToMerged(streamManager.second->getCloud());
                 }
             }
 
