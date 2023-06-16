@@ -50,8 +50,8 @@ namespace pcl_aggregator {
             this->mergedCloud.reset();
 
             // free all the stream managers
-            for(auto iter = this->streamManagers.begin(); iter != this->streamManagers.end(); ++iter) {
-                iter->second.reset();
+            for(auto & streamManager : this->streamManagers) {
+                streamManager.second.reset();
             }
 
             // wait for the memory monitoring thread
@@ -131,7 +131,7 @@ namespace pcl_aggregator {
                     return icp.hasConverged(); // return true if alignment was possible
 
                 } else {
-                    *this->mergedCloud += *input;
+                    *this->mergedCloud = *input;
                 }
 
             }
