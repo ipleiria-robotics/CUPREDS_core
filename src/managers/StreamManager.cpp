@@ -37,8 +37,12 @@ namespace pcl_aggregator {
         }
 
         void StreamManager::removePointCloud(std::shared_ptr<entities::StampedPointCloud> spcl) {
+
+            this->cloudMutex.lock();
             // remove points with that label from the merged pointcloud
             this->cloud->removePointsWithLabel(spcl->getLabel());
+            this->cloudMutex.unlock();
+
 
             // lock the set
             std::lock_guard<std::mutex> guard(this->setMutex);
@@ -73,10 +77,10 @@ namespace pcl_aggregator {
             // transform the incoming pointcloud and add directly to the set
 
             // start a thread to transform the pointcloud
-            auto transformRoutine = [] (StreamManager* instance, const std::shared_ptr<entities::StampedPointCloud>& spcl, const Eigen::Affine3d& tf) {
-                applyTransformRoutine(instance, spcl, tf);
+            auto transformRoutine = [this] (const std::shared_ptr<entities::StampedPointCloud>& spcl, const Eigen::Affine3d& tf) {
+                applyTransformRoutine(this, spcl, tf);
             };
-            std::thread transformationThread(transformRoutine, this, spcl, sensorTransform);
+            std::thread transformationThread(transformRoutine, spcl, sensorTransform);
 
             // start a thread to clear the pointclouds older than max age
             // std::thread cleaningThread(clearPointCloudsRoutine, this);
@@ -100,6 +104,8 @@ namespace pcl_aggregator {
                 if(!spcl->getPointCloud()->empty()) {
                     this->cloudMutex.lock();
                     if(!this->cloud->getPointCloud()->empty()) {
+
+                        /*
                         pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
                         icp.setInputSource(spcl->getPointCloud());
@@ -110,23 +116,25 @@ namespace pcl_aggregator {
 
                         icp.align(*this->cloud->getPointCloud());
 
-                        if (!icp.hasConverged())
+                        if (!icp.hasConverged()) {
                             *this->cloud->getPointCloud() += *spcl->getPointCloud(); // if alignment was not possible, just add the pointclouds
+                        }
+
+                        */
+
+                        *this->cloud->getPointCloud() += *spcl->getPointCloud();
 
                     } else {
                         *this->cloud->getPointCloud() = *spcl->getPointCloud();
                     }
                     this->cloudMutex.unlock();
 
-                    // remove the points. they are not needed, just the label
-                    spcl->getPointCloud().reset();
-
                     // start the pointcloud recycling thread
-                    auto autoRemoveRoutine = [] (StreamManager* instance,
+                    auto autoRemoveRoutine = [this] (
                                                  const std::shared_ptr<entities::StampedPointCloud>& spcl) {
-                        pointCloudAutoRemoveRoutine(instance, spcl);
+                        pointCloudAutoRemoveRoutine(this, spcl);
                     };
-                    std::thread spclRecyclingThread(autoRemoveRoutine, this, spcl);
+                    std::thread spclRecyclingThread(autoRemoveRoutine, spcl);
                     // detach from the thread, this execution flow doesn't really care about it
                     spclRecyclingThread.detach();
                 }
@@ -163,6 +171,9 @@ namespace pcl_aggregator {
 
         void pointCloudAutoRemoveRoutine(StreamManager* instance,
                                                 const std::shared_ptr<entities::StampedPointCloud>& spcl) {
+
+            spcl->getPointCloud().reset();
+
             // sleep for the max age
             std::this_thread::sleep_for(std::chrono::milliseconds(
                     static_cast<long long>(instance->maxAge * 1000)));
