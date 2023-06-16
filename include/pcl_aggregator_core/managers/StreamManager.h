@@ -15,6 +15,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/registration/icp.h>
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
+#include <pcl_aggregator_core/utils/Utils.h>
 #include <thread>
 
 #define STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE 1
@@ -55,12 +56,17 @@ namespace pcl_aggregator {
                 /*! \brief Mutex to manage access to the sensor transform. */
                 std::mutex sensorTransformMutex;
 
+                /*! \brief Thread which monitors the current PointCloud's age. Started by the constructor. */
+                std::thread maxAgeWatcherThread;
+                /*!\brief Flag to determine if the age watcher thread should be stopped or not. */
+                bool keepAgeWatcherAlive = true;
+
                 /*! \brief Compute the sensor transform. */
                 void computeTransform();
                 void removePointCloud(std::shared_ptr<entities::StampedPointCloud> spcl);
 
             public:
-                StreamManager(std::string topicName, double maxAge);
+                StreamManager(const std::string& topicName, double maxAge);
                 ~StreamManager();
 
                 bool operator==(const StreamManager& other) const;
@@ -110,6 +116,15 @@ namespace pcl_aggregator {
 
             friend void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud>& spcl,
                                                       const Eigen::Matrix4f& tf);
+
+            /*! \brief Max age watching routine.
+             *
+             * This routine is ran by a thread in background watching the age of the PointClouds
+             * contained in this StreamManager. Whenever a thread older than the max age is found it is removed.
+             *
+             * @param instance Pointer to the StreamManager instance
+             */
+            friend void maxAgeWatchingRoutine(StreamManager* instance);
 
         };
 

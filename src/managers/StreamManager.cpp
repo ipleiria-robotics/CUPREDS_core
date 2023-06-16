@@ -7,14 +7,60 @@
 namespace pcl_aggregator {
     namespace managers {
 
-        StreamManager::StreamManager(std::string topicName, double maxAge) {
+        void maxAgeWatchingRoutine(StreamManager* instance) {
+
+            // lambda function which removes a pointcloud from the merged version
+            auto pointCloudRemovalRoutine = [instance](std::uint32_t label) {
+                instance->cloud->removePointsWithLabel(label);
+            };
+
+            while(instance->keepAgeWatcherAlive) {
+
+                // lock access to the pointcloud set
+                instance->setMutex.lock();
+
+                for(auto& iter : instance->clouds) {
+
+                    // this pointcloud is older than the max age
+                    if(utils::Utils::getAgeInSecs(iter->getTimestamp()) >= instance->maxAge) {
+                        // start a detached thread to remove it
+                        /*
+                         * using a deteched thread instead of sequentially to prevent from having this iteration
+                         * going for too long, keeping access to the set constantly locked
+                         */
+                        std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine,
+                                                                          iter->getLabel());
+                        pointCloudRemovalThread.detach();
+                    }
+                }
+
+                // unlock access to hte set
+                instance->setMutex.unlock();
+
+                // sleep for a second before repeating
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        }
+
+        StreamManager::StreamManager(const std::string& topicName, double maxAge) {
             this->topicName = topicName;
             this->cloud = std::make_shared<entities::StampedPointCloud>(topicName);
             this->maxAge = maxAge;
+
+            // start the age watcher thread
+            this->maxAgeWatcherThread = std::thread(maxAgeWatchingRoutine, this);
+
+            // this thread can dettach from the main thread
+            this->maxAgeWatcherThread.detach();
         }
 
         StreamManager::~StreamManager() {
             this->cloud.reset();
+
+            // signal the watcher to stop
+            this->keepAgeWatcherAlive = false;
+            // wait for the watcher to end
+            this->maxAgeWatcherThread.join();
         }
 
         bool StreamManager::operator==(const StreamManager &other) const {
@@ -129,6 +175,7 @@ namespace pcl_aggregator {
                     }
                     this->cloudMutex.unlock();
 
+                    /*
                     // start the pointcloud recycling thread
                     auto autoRemoveRoutine = [this] (
                                                  const std::shared_ptr<entities::StampedPointCloud>& spcl) {
@@ -136,7 +183,7 @@ namespace pcl_aggregator {
                     };
                     std::thread spclRecyclingThread(autoRemoveRoutine, spcl);
                     // detach from the thread, this execution flow doesn't really care about it
-                    spclRecyclingThread.detach();
+                    spclRecyclingThread.detach(); */
                 }
 
             } catch (std::exception &e) {
