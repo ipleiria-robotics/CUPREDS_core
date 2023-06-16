@@ -102,10 +102,12 @@ namespace pcl_aggregator {
 
         void StampedPointCloud::removePointsWithLabel(std::uint32_t label) {
 
-            for(auto it = this->cloud->begin(); it != this->cloud->end(); it++) {
-                if(it->label == label) {
-                    this->cloud->erase(it);
-                }
+            auto it = this->cloud->begin();
+            while (it != this->cloud->end()) {
+                if (it->label == label)
+                    it = this->cloud->erase(it);
+                else
+                    ++it;
             }
         }
     } // pcl_aggregator
