@@ -100,7 +100,7 @@ namespace pcl_aggregator {
             for(auto & streamManager : this->streamManagers) {
                 if(firstCloud) {
                     this->cloudMutex.lock();
-                    this->mergedCloud = streamManager.second->getCloud();
+                    *this->mergedCloud = *streamManager.second->getCloud();
                     this->cloudMutex.unlock();
                     firstCloud = false;
                 } else {
@@ -115,6 +115,8 @@ namespace pcl_aggregator {
 
         bool PointCloudsManager::appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &input) {
 
+            /* lock access to the pointcloud mutex by other threads.
+             * will only be released after appending the input pointcloud. */
             this->cloudMutex.lock();
 
             // align the pointclouds
