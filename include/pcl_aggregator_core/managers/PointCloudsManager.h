@@ -94,7 +94,7 @@ namespace pcl_aggregator {
                  * @param cloud Smart pointer to the new pointcloud.
                  * @param topicName The name of the topic from which the pointcloud came from. Will be used for identification.
                  */
-                void addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const std::string& topicName);
+                void addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, const std::string& topicName);
 
                 /*! \brief Set the transform of a given sensor, identified by the topic name, to the robot base frame.
                  *

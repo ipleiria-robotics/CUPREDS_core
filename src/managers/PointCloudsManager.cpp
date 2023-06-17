@@ -64,7 +64,7 @@ namespace pcl_aggregator {
             return this->nSources;
         }
 
-        void PointCloudsManager::addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &cloud, const std::string &topicName) {
+        void PointCloudsManager::addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, const std::string &topicName) {
 
             // check if the pointcloud is null or empty
             if(cloud == nullptr)
