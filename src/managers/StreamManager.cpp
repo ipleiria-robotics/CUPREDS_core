@@ -70,6 +70,14 @@ namespace pcl_aggregator {
             this->keepAgeWatcherAlive = false;
             // wait for the watcher to end
             this->maxAgeWatcherThread.join();
+
+            for(const auto& c : this->clouds) {
+                this->clouds.erase(c);
+            }
+
+            while(!this->cloudsNotTransformed.empty()) {
+                this->cloudsNotTransformed.pop();
+            }
         }
 
         bool StreamManager::operator==(const StreamManager &other) const {
@@ -77,14 +85,14 @@ namespace pcl_aggregator {
         }
 
         void StreamManager::computeTransform() {
-            while(this->cloudsNotTransformed.size() > 0) {
+            while(!this->cloudsNotTransformed.empty()) {
 
                 // get the first element
                 std::shared_ptr<entities::StampedPointCloud> spcl = this->cloudsNotTransformed.front();
                 spcl->applyTransform(this->sensorTransform);
 
                 // add to the set
-                this->clouds.insert(spcl);
+                this->clouds.insert(std::move(spcl));
 
                 // remove from the queue
                 this->cloudsNotTransformed.pop();
