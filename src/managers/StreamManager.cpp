@@ -201,7 +201,7 @@ namespace pcl_aggregator {
 
                         // call the callback on a new thread
                         std::thread pointCloudCallbackThread = std::thread(this->pointCloudReadyCallback,
-                                                                           *this->cloud->getPointCloud());
+                                                                           *(this->cloud->getPointCloud()));
                         pointCloudCallbackThread.detach();
                     }
 
