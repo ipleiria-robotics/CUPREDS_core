@@ -258,6 +258,16 @@ namespace pcl_aggregator {
             this->pointAgingCallback = func;
         }
 
+        std::function<void(pcl::PointCloud<pcl::PointXYZRGBL> &cloud)>
+        StreamManager::getPointCloudReadyCallback() const {
+            return this->pointCloudReadyCallback;
+        }
+
+        void StreamManager::setPointCloudReadyCallback(
+                const std::function<void(const pcl::PointCloud<pcl::PointXYZRGBL> &)> &func) {
+            this->pointCloudReadyCallback = func;
+        }
+
 
     } // pcl_aggregator
 } // managers
