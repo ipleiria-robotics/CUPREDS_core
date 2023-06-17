@@ -69,6 +69,11 @@ namespace pcl_aggregator {
                  */
                 std::function<void(std::uint32_t label)> pointAgingCallback = nullptr;
 
+                /*! \brief Callback function to call when the StreamManager has a new PointCloud ready.
+                 * May be useful to add PointClouds to the
+                 */
+                std::function<void(pcl::PointCloud<pcl::PointXYZRGBL> cloud)> pointCloudReadyCallback = nullptr;
+
                 /*! \brief Compute the sensor transform. */
                 void computeTransform();
                 void removePointCloud(std::shared_ptr<entities::StampedPointCloud> spcl);

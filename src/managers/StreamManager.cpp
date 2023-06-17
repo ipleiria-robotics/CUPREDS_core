@@ -180,6 +180,15 @@ namespace pcl_aggregator {
                     } else {
                         *this->cloud->getPointCloud() = *spcl->getPointCloud();
                     }
+
+                    if(this->pointCloudReadyCallback != nullptr) {
+
+                        // call the callback on a new thread
+                        std::thread pointCloudCallbackThread = std::thread(this->pointCloudReadyCallback,
+                                                                           *this->cloud->getPointCloud());
+                        pointCloudCallbackThread.detach();
+                    }
+
                     this->cloudMutex.unlock();
 
                     /*
