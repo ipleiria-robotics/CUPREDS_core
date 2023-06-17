@@ -17,6 +17,7 @@
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 #include <pcl_aggregator_core/utils/Utils.h>
 #include <thread>
+#include <functional>
 
 #define STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE 1
 #define STREAM_ICP_MAX_ITERATIONS 10
@@ -95,6 +96,13 @@ namespace pcl_aggregator {
                  * @return The configured max points age.
                  */
                 double getMaxAge() const;
+
+                /*! \brief Callback function to call when a PointCloud ages older than maxAge.
+                 * May be useful to remove points from the PointCloudsManager's PointCloud.
+                 *
+                 * @param label The label to remove
+                 */
+                std::function<void(std::uint32_t label)> pointAgingCallback = nullptr;
 
 
             /*!

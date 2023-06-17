@@ -31,6 +31,13 @@ namespace pcl_aggregator {
                         std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine,
                                                                           iter->getLabel());
                         pointCloudRemovalThread.detach();
+
+                        // the point aging callback was set
+                        if(instance->pointAgingCallback != nullptr) {
+                            // call a thread to run the callback
+                            std::thread callbackThread = std::thread(instance->pointAgingCallback, iter->getLabel());
+                            callbackThread.detach();
+                        }
                     }
                 }
 
