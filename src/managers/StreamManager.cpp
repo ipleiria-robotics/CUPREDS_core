@@ -10,8 +10,8 @@ namespace pcl_aggregator {
         void maxAgeWatchingRoutine(StreamManager* instance) {
 
             // lambda function which removes a pointcloud from the merged version
-            auto pointCloudRemovalRoutine = [instance](std::uint32_t label) {
-                instance->cloud->removePointsWithLabel(label);
+            auto pointCloudRemovalRoutine = [instance](std::shared_ptr<entities::StampedPointCloud> spcl) {
+                instance->removePointCloud(std::move(spcl));
             };
 
             while(instance->keepAgeWatcherAlive) {
@@ -19,7 +19,7 @@ namespace pcl_aggregator {
                 // lock access to the pointcloud set
                 instance->setMutex.lock();
 
-                for(auto& iter : instance->clouds) {
+                for(auto iter : instance->clouds) {
 
                     // this pointcloud is older than the max age
                     if(utils::Utils::getAgeInSecs(iter->getTimestamp()) >= instance->maxAge) {
@@ -28,14 +28,16 @@ namespace pcl_aggregator {
                          * using a deteched thread instead of sequentially to prevent from having this iteration
                          * going for too long, keeping access to the set constantly locked
                          */
-                        std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine,
-                                                                          iter->getLabel());
+
+                        std::uint32_t label = iter->getLabel();
+
+                        std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine,std::move(iter));
                         pointCloudRemovalThread.detach();
 
                         // the point aging callback was set
                         if(instance->pointAgingCallback != nullptr) {
                             // call a thread to run the callback
-                            std::thread callbackThread = std::thread(instance->pointAgingCallback, iter->getLabel());
+                            std::thread callbackThread = std::thread(instance->pointAgingCallback, label);
                             callbackThread.detach();
                         }
                     }
