@@ -75,6 +75,13 @@ namespace pcl_aggregator {
                  */
                 void removePointsByLabel(std::uint32_t label);
 
+                /*! \brief Add the processed PointCloud of a given stream to the merged.
+                 * Used typically when the Stream finishes processing a new PointCloud.
+                 *
+                 * @param cloud The PointCloud to add.
+                 */
+                void addStreamPointCloud(const pcl::PointCloud<pcl::PointXYZRGBL>& cloud);
+
             public:
                 PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory);
                 ~PointCloudsManager();

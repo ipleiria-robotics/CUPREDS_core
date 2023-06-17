@@ -86,15 +86,18 @@ namespace pcl_aggregator {
         }
 
         pcl::PointCloud<pcl::PointXYZRGBL> PointCloudsManager::getMergedCloud() {
+            /*
             // clear the old merged cloud
             this->clearMergedCloud();
 
             bool firstCloud = true;
+             */
 
             // iterate the map
             /* TODO: review performance of only perform merging on demand
              * vs merging the pointclouds and removing as needed every time
             */
+            /*
             this->managersMutex.lock();
             for(auto & streamManager : this->streamManagers) {
                 if(firstCloud) {
@@ -106,7 +109,7 @@ namespace pcl_aggregator {
                     this->appendToMerged(streamManager.second->getCloud());
                 }
             }
-            this->managersMutex.unlock();
+            this->managersMutex.unlock();*/
 
             // this->downsampleMergedCloud();
             return *this->mergedCloud.getPointCloud();
@@ -157,6 +160,15 @@ namespace pcl_aggregator {
             this->mergedCloud.removePointsWithLabel(label);
         }
 
+        void PointCloudsManager::addStreamPointCloud(const pcl::PointCloud<pcl::PointXYZRGBL>& cloud) {
+
+            this->cloudMutex.lock();
+
+            *this->mergedCloud.getPointCloud() += cloud;
+
+            this->cloudMutex.unlock();
+        }
+
         void PointCloudsManager::initStreamManager(const std::string &topicName, double maxAge) {
             std::lock_guard<std::mutex> lock(this->managersMutex);
 
@@ -168,6 +180,10 @@ namespace pcl_aggregator {
             // set the point removing method as a callback when some pointcloud ages on the stream manager
             newStreamManager->setPointAgingCallback(std::bind(&PointCloudsManager::removePointsByLabel, this,
                                                               std::placeholders::_1));
+
+            // add a pointcloud whenever the StreamManager has one ready
+            newStreamManager->setPointCloudReadyCallback(std::bind(&PointCloudsManager::addStreamPointCloud, this,
+                                                                   std::placeholders::_1));
 
             this->streamManagers[topicName] = std::move(newStreamManager);
         }
