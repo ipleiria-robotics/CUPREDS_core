@@ -91,16 +91,6 @@ namespace pcl_aggregator {
                  */
                 void removePointsWithLabel(std::uint32_t label);
 
-                /*! \brief A transformation routine.
-                 *         Routine used by some threads to transform the PointCloud in a detached state and/or using CUDA.
-                 */
-                friend void transformPointCloudRoutine(StampedPointCloud* instance  );
-
-                /*! \brief A point removal routine.
-                 *         Routine used by some threads to remove points in a detached state.
-                 */
-                friend void removePointsWithLabelRoutine(StampedPointCloud* instance, std::uint32_t label);
-
         };
 
         /*! \brief Custom comparison functor between stamped point clouds. The comparison criteria is the timestamp. */
