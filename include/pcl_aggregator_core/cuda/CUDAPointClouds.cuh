@@ -25,7 +25,7 @@ namespace pcl_aggregator {
              *
              * @param transform The affine transform to apply.
              */
-            __host__ void transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, Eigen::Affine3d transform);
+            __host__ void transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const Eigen::Affine3d& transform);
 
             /*! \param The kernel which sets the label on an individual point.
              *
