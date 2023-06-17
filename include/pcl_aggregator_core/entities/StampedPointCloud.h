@@ -73,12 +73,12 @@ namespace pcl_aggregator {
                 /*! \brief Check if the transform to the robot base frame was computed. */
                 bool isTransformComputed() const;
                 /*! \brief Apply the robot frame transform. */
-                void applyTransform(Eigen::Affine3d tf);
+                void applyTransform(const Eigen::Affine3d& tf);
 
                 /*! \brief Check if the ICP transform was computed on this PointCloud. */
                 bool isIcpTransformComputed() const;
                 /*! \brief Apply the ICP transform. */
-                void applyIcpTransform(Eigen::Matrix4f tf);
+                void applyIcpTransform(const Eigen::Matrix4f& tf);
 
                 /*! \brief Assign a label to a PointCloud.
                  *

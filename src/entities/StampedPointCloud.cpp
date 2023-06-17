@@ -91,7 +91,7 @@ namespace pcl_aggregator {
             return this->transformComputed;
         }
 
-        void StampedPointCloud::applyTransform(Eigen::Affine3d tf) {
+        void StampedPointCloud::applyTransform(const Eigen::Affine3d& tf) {
 
             this->cloudMutex.lock();
 
@@ -106,7 +106,7 @@ namespace pcl_aggregator {
             this->transformComputed = true;
         }
 
-        void StampedPointCloud::applyIcpTransform(Eigen::Matrix4f tf) {
+        void StampedPointCloud::applyIcpTransform(const Eigen::Matrix4f& tf) {
 
             if(!icpTransformComputed) {
 
