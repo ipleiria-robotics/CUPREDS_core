@@ -222,7 +222,8 @@ namespace pcl_aggregator {
 
         }
 
-        pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StreamManager::getCloud() const {
+        pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StreamManager::getCloud() {
+            std::lock_guard<std::mutex> lock(this->cloudMutex);
             return this->cloud->getPointCloud();
         }
 
