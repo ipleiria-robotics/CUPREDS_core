@@ -14,7 +14,7 @@ namespace pcl_aggregator {
                 instance->cloudMutex.lock();
 
                 // get size in MB
-                size_t cloudSize = instance->mergedCloud->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
+                size_t cloudSize = instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
 
                 // how many points need to be removed to match the maximum size or less?
                 ssize_t pointsToRemove = ceil(
@@ -26,7 +26,7 @@ namespace pcl_aggregator {
 
                     // remove the points needed if the number of points exceed the maximum
                     for (size_t i = 0; i < pointsToRemove; i++)
-                        instance->mergedCloud->points.pop_back();
+                        instance->mergedCloud.getPointCloud()->points.pop_back();
                 }
 
                 instance->cloudMutex.unlock();
@@ -36,11 +36,15 @@ namespace pcl_aggregator {
             }
         }
 
-        PointCloudsManager::PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory) {
-            this->nSources = nSources;
+        void pointRemovingRoutine(PointCloudsManager* instance, std::uint32_t label) {
 
-            // initialize empty merged cloud
-            this->mergedCloud = pcl::PointCloud<pcl::PointXYZRGBL>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBL>());
+            // remove the points with the label
+            instance->mergedCloud.removePointsWithLabel(label);
+        }
+
+        PointCloudsManager::PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory):
+        mergedCloud("mergedCloud") {
+            this->nSources = nSources;
 
             this->maxAge = maxAge;
             this->maxMemory = maxMemory;
@@ -51,8 +55,6 @@ namespace pcl_aggregator {
         }
 
         PointCloudsManager::~PointCloudsManager() {
-            // free the merged pointcloud
-            this->mergedCloud.reset();
 
             // free all the stream managers
             for(auto & streamManager : this->streamManagers) {
@@ -103,7 +105,7 @@ namespace pcl_aggregator {
             for(auto & streamManager : this->streamManagers) {
                 if(firstCloud) {
                     this->cloudMutex.lock();
-                    *this->mergedCloud = *streamManager.second->getCloud();
+                    *this->mergedCloud.getPointCloud() = *streamManager.second->getCloud();
                     this->cloudMutex.unlock();
                     firstCloud = false;
                 } else {
@@ -113,7 +115,7 @@ namespace pcl_aggregator {
             this->managersMutex.unlock();
 
             // this->downsampleMergedCloud();
-            return *this->mergedCloud;
+            return *this->mergedCloud.getPointCloud();
         }
 
         bool PointCloudsManager::appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &input) {
@@ -124,7 +126,7 @@ namespace pcl_aggregator {
 
             // align the pointclouds
             if(!input->empty()) {
-                if(!this->mergedCloud->empty()) {
+                if(!this->mergedCloud.getPointCloud()->empty()) {
                     /*
                     // create an ICP instance
                     pcl::IterativeClosestPoint<pcl::PointXYZRGBL, pcl::PointXYZRGBL> icp;
@@ -141,11 +143,11 @@ namespace pcl_aggregator {
 
                     return icp.hasConverged(); // return true if alignment was possible */
 
-                    *this->mergedCloud += *input;
+                    *this->mergedCloud.getPointCloud() += *input;
                     return false;
 
                 } else {
-                    *this->mergedCloud = *input;
+                    *this->mergedCloud.getPointCloud() = *input;
                 }
 
             }
@@ -166,7 +168,7 @@ namespace pcl_aggregator {
         void PointCloudsManager::clearMergedCloud() {
 
             this->cloudMutex.lock();
-            this->mergedCloud->clear();
+            this->mergedCloud.getPointCloud()->clear();
             this->cloudMutex.unlock();
         }
 

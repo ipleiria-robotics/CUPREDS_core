@@ -13,6 +13,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_aggregator_core/managers/StreamManager.h>
+#include <pcl_aggregator_core/entities/StampedPointCloud.h>
 
 #define GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE 1
 #define GLOBAL_ICP_MAX_ITERATIONS 10
@@ -37,7 +38,7 @@ namespace pcl_aggregator {
                 /*! \brief Hash map of managers, one for each sensor (topic). */
                 std::unordered_map<std::string,std::unique_ptr<StreamManager>> streamManagers;
                 /*! \brief Smart pointer to the merged PointCloud. */
-                pcl::PointCloud<pcl::PointXYZRGBL>::Ptr mergedCloud;
+                entities::StampedPointCloud mergedCloud;
 
                 /*! \brief Mutex which manages concurrent access to the managers hash map. */
                 std::mutex managersMutex;
@@ -97,6 +98,14 @@ namespace pcl_aggregator {
              * @param instance Pointer to the PointCloudsManager instance.
              * */
             friend void memoryMonitoringRoutine(PointCloudsManager* instance);
+
+            /*! \brief Routine to remove points with a given label from the merged PointCloud.
+             * Used typically when points age, as a callback from the StreamManagers.
+             *
+             * @param instance Pointer to the PointCloudsManager instance
+             * @param label The label to remove.
+             */
+            friend void pointRemovingRoutine(PointCloudsManager* instance, std::uint32_t label);
 
         };
 
