@@ -69,8 +69,10 @@ namespace pcl_aggregator {
             // check if the pointcloud is null or empty
             if(cloud == nullptr)
                 return;
-            if(cloud->empty())
+            if(cloud->empty()) {
+                cloud.reset();
                 return;
+            }
 
             // the key is not present
             this->initStreamManager(topicName, this->maxAge);

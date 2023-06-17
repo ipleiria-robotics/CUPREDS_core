@@ -127,8 +127,10 @@ namespace pcl_aggregator {
             // check the incoming pointcloud for null or empty
             if(cloud == nullptr)
                 return;
-            if(cloud->empty())
+            if(cloud->empty()) {
+                cloud.reset();
                 return;
+            }
 
             // create a stamped point cloud object to keep this pointcloud
             std::shared_ptr<entities::StampedPointCloud> spcl =
