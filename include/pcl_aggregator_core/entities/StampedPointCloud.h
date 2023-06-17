@@ -48,6 +48,7 @@ namespace pcl_aggregator {
 
             public:
                 StampedPointCloud(std::string originTopic);
+                ~StampedPointCloud();
 
                 /*! \brief Get the PointCloud timestamp. */
                 unsigned long long getTimestamp() const;

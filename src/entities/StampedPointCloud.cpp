@@ -20,6 +20,12 @@ namespace pcl_aggregator {
             this->cloud = pcl::PointCloud<pcl::PointXYZRGBL>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBL>());
         }
 
+        StampedPointCloud::~StampedPointCloud() {
+
+            // the StampedPointCloud owns its cloud's pointer and should destroy it
+            this->cloud.reset();
+        }
+
         // generate a 32-bit label and assign
         std::uint32_t StampedPointCloud::generateLabel() {
 
