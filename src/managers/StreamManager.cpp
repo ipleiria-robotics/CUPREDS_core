@@ -236,7 +236,7 @@ namespace pcl_aggregator {
         }
 
         void pointCloudAutoRemoveRoutine(StreamManager* instance,
-                                                const std::shared_ptr<entities::StampedPointCloud>& spcl) {
+                                                std::shared_ptr<entities::StampedPointCloud> spcl) {
 
             spcl->getPointCloud().reset();
 
@@ -245,7 +245,7 @@ namespace pcl_aggregator {
                     static_cast<long long>(instance->maxAge * 1000)));
 
             // call the pointcloud removal method
-            instance->removePointCloud(spcl);
+            instance->removePointCloud(std::move(spcl));
         }
 
         void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud>& spcl,

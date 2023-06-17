@@ -148,7 +148,7 @@ namespace pcl_aggregator {
 
 
             friend void pointCloudAutoRemoveRoutine(StreamManager* instance,
-                                                    const std::shared_ptr<entities::StampedPointCloud>& spcl);
+                                                    std::shared_ptr<entities::StampedPointCloud> spcl);
 
 
             friend void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud>& spcl,
