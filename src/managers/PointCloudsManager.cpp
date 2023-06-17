@@ -36,12 +36,6 @@ namespace pcl_aggregator {
             }
         }
 
-        void pointRemovingRoutine(PointCloudsManager* instance, std::uint32_t label) {
-
-            // remove the points with the label
-            instance->mergedCloud.removePointsWithLabel(label);
-        }
-
         PointCloudsManager::PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory):
         mergedCloud("mergedCloud") {
             this->nSources = nSources;
@@ -157,12 +151,25 @@ namespace pcl_aggregator {
             return false;
         }
 
+        void PointCloudsManager::removePointsByLabel(std::uint32_t label) {
+
+            // remove the points with the label
+            this->mergedCloud.removePointsWithLabel(label);
+        }
+
         void PointCloudsManager::initStreamManager(const std::string &topicName, double maxAge) {
             std::lock_guard<std::mutex> lock(this->managersMutex);
 
             if(this->streamManagers.count(topicName) != 0)
                 return;
-            this->streamManagers[topicName] = std::make_unique<StreamManager>(topicName, maxAge);
+
+            std::unique_ptr<StreamManager> newStreamManager = std::make_unique<StreamManager>(topicName, maxAge);
+
+            // set the point removing method as a callback when some pointcloud ages on the stream manager
+            newStreamManager->setPointAgingCallback(std::bind(&PointCloudsManager::removePointsByLabel, this,
+                                                              std::placeholders::_1));
+
+            this->streamManagers[topicName] = std::move(newStreamManager);
         }
 
         void PointCloudsManager::clearMergedCloud() {

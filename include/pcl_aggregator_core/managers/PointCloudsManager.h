@@ -68,6 +68,13 @@ namespace pcl_aggregator {
                  */
                 void initStreamManager(const std::string& topicName, double maxAge);
 
+                /*! \brief Remove points with a given label from the merged PointCloud.
+                 * Used typically when points age, as a callback from the StreamManagers.
+                 *
+                 * @param label The label to remove.
+                 */
+                void removePointsByLabel(std::uint32_t label);
+
             public:
                 PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory);
                 ~PointCloudsManager();
@@ -98,14 +105,6 @@ namespace pcl_aggregator {
              * @param instance Pointer to the PointCloudsManager instance.
              * */
             friend void memoryMonitoringRoutine(PointCloudsManager* instance);
-
-            /*! \brief Routine to remove points with a given label from the merged PointCloud.
-             * Used typically when points age, as a callback from the StreamManagers.
-             *
-             * @param instance Pointer to the PointCloudsManager instance
-             * @param label The label to remove.
-             */
-            friend void pointRemovingRoutine(PointCloudsManager* instance, std::uint32_t label);
 
         };
 
