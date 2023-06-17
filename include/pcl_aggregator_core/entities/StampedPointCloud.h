@@ -9,6 +9,7 @@
 #include <pcl/point_cloud.h>
 #include <eigen3/Eigen/Dense>
 #include <cstdint>
+#include <mutex>
 
 #define POINTCLOUD_ORIGIN_NONE "none"
 
@@ -21,16 +22,26 @@ namespace pcl_aggregator {
         class StampedPointCloud {
 
             private:
+                /*! \brief The timestamp */
                 unsigned long long timestamp;
 
+                /*! \brief The PointCloud */
                 typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud = nullptr;
-                bool transformComputed = false; // is the transform to the robot frame computed?
-                bool icpTransformComputed = false; // is the transform computed by ICP computed?
+
+                /*! \brief Was the transform to the robot frame computed? */
+                bool transformComputed = false;
+
+                /*! \brief Was the transform computed by ICP applied? */
+                bool icpTransformComputed = false;
 
                 // the name of the topic the pointcloud came from
                 std::string originTopic = POINTCLOUD_ORIGIN_NONE;
 
-                std::uint32_t label; // label used to identify each pointcloud on removal
+                /*! \brief Label used to identify each PointCloud, for example on removal */
+                std::uint32_t label;
+
+                /*! \brief Mutex to contain access to this PointCloud. */
+                std::mutex cloudMutex;
 
                 /*! \brief Generate a label to the PointCloud based on the origin topic name and timestamp. */
                 std::uint32_t generateLabel();
@@ -41,7 +52,7 @@ namespace pcl_aggregator {
                 /*! \brief Get the PointCloud timestamp. */
                 unsigned long long getTimestamp() const;
                 /*! \brief Get a smart pointer to the PointCloud. */
-                typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr getPointCloud() const;
+                typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr getPointCloud();
                 /*! \brief Get the origin topic name. */
                 std::string getOriginTopic() const;
                 /*! \brief Get the label of the PointCloud. Should be unique. */
@@ -79,16 +90,6 @@ namespace pcl_aggregator {
                  * @param label The label to remove.
                  */
                 void removePointsWithLabel(std::uint32_t label);
-
-                /*! \brief A transformation routine.
-                 *         Routine used by some threads to transform the PointCloud in a detached state and/or using CUDA.
-                 */
-                friend void transformPointCloudRoutine(StampedPointCloud* instance  );
-
-                /*! \brief A point removal routine.
-                 *         Routine used by some threads to remove points in a detached state.
-                 */
-                friend void removePointsWithLabelRoutine(StampedPointCloud* instance, std::uint32_t label);
 
         };
 

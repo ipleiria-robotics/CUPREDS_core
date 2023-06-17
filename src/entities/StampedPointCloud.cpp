@@ -35,8 +35,11 @@ namespace pcl_aggregator {
             return this->timestamp;
         }
 
-        typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StampedPointCloud::getPointCloud() const {
-            return this->cloud;
+        typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StampedPointCloud::getPointCloud() {
+            this->cloudMutex.lock();
+            pcl::PointCloud<pcl::PointXYZRGBL>::Ptr c = this->cloud;
+            this->cloudMutex.unlock();
+            return c;
         }
 
         std::string StampedPointCloud::getOriginTopic() const {
@@ -56,6 +59,8 @@ namespace pcl_aggregator {
         }
 
         void StampedPointCloud::setPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& c, bool assignGeneratedLabel) {
+            this->cloudMutex.lock();
+
             // free the old pointcloud
             this->cloud.reset();
 
@@ -64,6 +69,8 @@ namespace pcl_aggregator {
 
             if(assignGeneratedLabel)
                 StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
+
+            this->cloudMutex.unlock();
         }
 
         void StampedPointCloud::assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label) {
@@ -81,10 +88,14 @@ namespace pcl_aggregator {
 
         void StampedPointCloud::applyTransform(Eigen::Affine3d tf) {
 
+            this->cloudMutex.lock();
+
             if(this->cloud == nullptr)
                 return;
 
             cuda::pointclouds::transformPointCloudCuda(this->cloud, tf);
+
+            this->cloudMutex.unlock();
 
             // pcl::transformPointCloud(*this->cloud, *this->cloud, tf);
             this->transformComputed = true;
@@ -105,6 +116,8 @@ namespace pcl_aggregator {
 
         void StampedPointCloud::removePointsWithLabel(std::uint32_t label) {
 
+            this->cloudMutex.lock();
+
             auto it = this->cloud->begin();
             while (it != this->cloud->end()) {
                 if (it->label == label)
@@ -112,6 +125,8 @@ namespace pcl_aggregator {
                 else
                     ++it;
             }
+
+            this->cloudMutex.unlock();
         }
     } // pcl_aggregator
 } // entities

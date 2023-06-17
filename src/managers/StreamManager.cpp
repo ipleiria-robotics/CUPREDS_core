@@ -31,6 +31,13 @@ namespace pcl_aggregator {
                         std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine,
                                                                           iter->getLabel());
                         pointCloudRemovalThread.detach();
+
+                        // the point aging callback was set
+                        if(instance->pointAgingCallback != nullptr) {
+                            // call a thread to run the callback
+                            std::thread callbackThread = std::thread(instance->pointAgingCallback, iter->getLabel());
+                            callbackThread.detach();
+                        }
                     }
                 }
 
@@ -173,6 +180,15 @@ namespace pcl_aggregator {
                     } else {
                         *this->cloud->getPointCloud() = *spcl->getPointCloud();
                     }
+
+                    if(this->pointCloudReadyCallback != nullptr) {
+
+                        // call the callback on a new thread
+                        std::thread pointCloudCallbackThread = std::thread(this->pointCloudReadyCallback,
+                                                                           *this->cloud->getPointCloud());
+                        pointCloudCallbackThread.detach();
+                    }
+
                     this->cloudMutex.unlock();
 
                     /*
@@ -232,6 +248,24 @@ namespace pcl_aggregator {
         void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud>& spcl,
                                            const Eigen::Matrix4f& tf) {
             spcl->applyIcpTransform(tf);
+        }
+
+        std::function<void(std::uint32_t label)> StreamManager::getPointAgingCallback() const {
+            return this->pointAgingCallback;
+        }
+
+        void StreamManager::setPointAgingCallback(const std::function<void(std::uint32_t)>& func) {
+            this->pointAgingCallback = func;
+        }
+
+        std::function<void(pcl::PointCloud<pcl::PointXYZRGBL> &cloud)>
+        StreamManager::getPointCloudReadyCallback() const {
+            return this->pointCloudReadyCallback;
+        }
+
+        void StreamManager::setPointCloudReadyCallback(
+                const std::function<void(const pcl::PointCloud<pcl::PointXYZRGBL> &)> &func) {
+            this->pointCloudReadyCallback = func;
         }
 
 
