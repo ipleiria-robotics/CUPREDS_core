@@ -63,7 +63,7 @@ namespace pcl_aggregator {
                  * @param cloud The PointCloud smart pointer to move from.
                  * @param assignGeneratedLabel Assign a generated label or not. Generating the label has an additional overhead, but is usually needed.
                  * */
-                void setPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, bool assignGeneratedLabel=true);
+                void setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, bool assignGeneratedLabel=true);
                 /*! \brief Set the origin topic name.
                  * @param origin The topic name.
                  */

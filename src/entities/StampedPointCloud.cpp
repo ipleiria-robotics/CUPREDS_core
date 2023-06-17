@@ -58,14 +58,14 @@ namespace pcl_aggregator {
             this->timestamp = t;
         }
 
-        void StampedPointCloud::setPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& c, bool assignGeneratedLabel) {
+        void StampedPointCloud::setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr c, bool assignGeneratedLabel) {
             this->cloudMutex.lock();
 
             // free the old pointcloud
             this->cloud.reset();
 
             // set the new
-            this->cloud = c;
+            this->cloud = std::move(c);
 
             if(assignGeneratedLabel)
                 StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
