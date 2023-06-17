@@ -32,7 +32,7 @@ namespace pcl_aggregator {
                 instance->cloudMutex.unlock();
 
                 // run the thread routine each second
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::milliseconds (500));
             }
         }
 
@@ -122,14 +122,14 @@ namespace pcl_aggregator {
             return c;
         }
 
-        bool PointCloudsManager::appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &input) {
+        bool PointCloudsManager::appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL> &input) {
 
             /* lock access to the pointcloud mutex by other threads.
              * will only be released after appending the input pointcloud. */
             this->cloudMutex.lock();
 
             // align the pointclouds
-            if(!input->empty()) {
+            if(!input.empty()) {
                 if(!this->mergedCloud.getPointCloud()->empty()) {
                     /*
                     // create an ICP instance
@@ -147,11 +147,11 @@ namespace pcl_aggregator {
 
                     return icp.hasConverged(); // return true if alignment was possible */
 
-                    *this->mergedCloud.getPointCloud() += *input;
+                    *this->mergedCloud.getPointCloud() += input;
                     return false;
 
                 } else {
-                    *this->mergedCloud.getPointCloud() = *input;
+                    *this->mergedCloud.getPointCloud() = input;
                 }
 
             }
@@ -169,11 +169,7 @@ namespace pcl_aggregator {
 
         void PointCloudsManager::addStreamPointCloud(const pcl::PointCloud<pcl::PointXYZRGBL>& cloud) {
 
-            this->cloudMutex.lock();
-
-            *this->mergedCloud.getPointCloud() += cloud;
-
-            this->cloudMutex.unlock();
+            this->appendToMerged(cloud);
         }
 
         void PointCloudsManager::initStreamManager(const std::string &topicName, double maxAge) {

@@ -56,7 +56,7 @@ namespace pcl_aggregator {
                  * @param input The shared pointer to the input PointCloud.
                  * @return Flag denoting if ICP was possible or not.
                  */
-                bool appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& input);
+                bool appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>& input);
 
                 /*! \brief Clear the points of the merged PointCloud. */
                 void clearMergedCloud();
