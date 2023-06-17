@@ -89,7 +89,7 @@ namespace pcl_aggregator {
                  * \brief Feed a PointCloud to manage.
                  * @param cloud The PointCloud smart pointer.
                  */
-                void addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud);
+                void addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud);
 
                 /*!
                  * \brief Get the merged version of the still valid PointClouds fed into this manager.

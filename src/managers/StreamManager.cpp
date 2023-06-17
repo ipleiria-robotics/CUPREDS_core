@@ -101,15 +101,18 @@ namespace pcl_aggregator {
             std::lock_guard<std::mutex> guard(this->setMutex);
 
             // iterate the set
-            for(auto it = this->clouds.begin(); it != this->clouds.end(); it++) {
-                if((*it)->getLabel() == spcl->getLabel()) {
+            for(const auto& c : this->clouds) {
+                if(c->getLabel() == spcl->getLabel()) {
                     // remove the pointcloud from the set
-                    this->clouds.erase(it);
+                    this->clouds.erase(c);
                 }
             }
+
+            spcl.reset();
+
         }
 
-        void StreamManager::addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud) {
+        void StreamManager::addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud) {
             // check the incoming pointcloud for null or empty
             if(cloud == nullptr)
                 return;
@@ -119,11 +122,11 @@ namespace pcl_aggregator {
             // create a stamped point cloud object to keep this pointcloud
             std::shared_ptr<entities::StampedPointCloud> spcl =
                     std::make_shared<entities::StampedPointCloud>(this->topicName);
-            spcl->setPointCloud(cloud);
+            spcl->setPointCloud(std::move(cloud));
 
             if(!this->sensorTransformSet) {
                 // add the pointcloud to the queue
-                this->cloudsNotTransformed.push(spcl);
+                this->cloudsNotTransformed.push(std::move(spcl));
                 return;
             }
 
@@ -133,7 +136,7 @@ namespace pcl_aggregator {
             auto transformRoutine = [this] (const std::shared_ptr<entities::StampedPointCloud>& spcl, const Eigen::Affine3d& tf) {
                 applyTransformRoutine(this, spcl, tf);
             };
-            std::thread transformationThread(transformRoutine, spcl, sensorTransform);
+            std::thread transformationThread(transformRoutine, std::ref(spcl), sensorTransform);
 
             // start a thread to clear the pointclouds older than max age
             // std::thread cleaningThread(clearPointCloudsRoutine, this);

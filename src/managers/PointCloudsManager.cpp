@@ -75,7 +75,7 @@ namespace pcl_aggregator {
             // the key is not present
             this->initStreamManager(topicName, this->maxAge);
 
-            this->streamManagers[topicName]->addCloud(cloud);
+            this->streamManagers[topicName]->addCloud(std::move(cloud));
 
         }
 
