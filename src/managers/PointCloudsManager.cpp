@@ -112,7 +112,14 @@ namespace pcl_aggregator {
             this->managersMutex.unlock();*/
 
             // this->downsampleMergedCloud();
-            return *this->mergedCloud.getPointCloud();
+
+            pcl::PointCloud<pcl::PointXYZRGBL> c;
+
+            this->cloudMutex.lock();
+            c =  *this->mergedCloud.getPointCloud();
+            this->cloudMutex.unlock();
+
+            return c;
         }
 
         bool PointCloudsManager::appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &input) {
