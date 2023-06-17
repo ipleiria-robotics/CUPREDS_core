@@ -14,13 +14,16 @@ namespace pcl_aggregator {
                 instance->cloudMutex.lock();
 
                 // get size in MB
-                size_t cloudSize = instance->mergedCloud->points.size() * sizeof(pcl::PointXYZRGBL) / 1000000;
+                size_t cloudSize = instance->mergedCloud->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
 
                 // how many points need to be removed to match the maximum size or less?
                 ssize_t pointsToRemove = ceil(
-                        (float) (cloudSize - instance->maxMemory) * 1000000 / sizeof(pcl::PointXYZRGBL));
+                        (float) (cloudSize - instance->maxMemory) * 1e6 / sizeof(pcl::PointXYZRGBL));
 
                 if (pointsToRemove > 0) {
+
+                    std::cerr << "Exceeded the memory limit: " << pointsToRemove << " points will be removed!" << std::endl;
+
                     // remove the points needed if the number of points exceed the maximum
                     for (size_t i = 0; i < pointsToRemove; i++)
                         instance->mergedCloud->points.pop_back();
