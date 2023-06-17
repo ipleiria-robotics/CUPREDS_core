@@ -241,6 +241,14 @@ namespace pcl_aggregator {
             spcl->applyIcpTransform(tf);
         }
 
+        std::function<void(std::uint32_t label)> StreamManager::getPointAgingCallback() const {
+            return this->pointAgingCallback;
+        }
+
+        void StreamManager::setPointAgingCallback(const std::function<void(std::uint32_t)>& func) {
+            this->pointAgingCallback = func;
+        }
+
 
     } // pcl_aggregator
 } // managers

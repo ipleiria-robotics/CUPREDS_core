@@ -62,6 +62,13 @@ namespace pcl_aggregator {
                 /*!\brief Flag to determine if the age watcher thread should be stopped or not. */
                 bool keepAgeWatcherAlive = true;
 
+                /*! \brief Callback function to call when a PointCloud ages older than maxAge.
+                 * May be useful to remove points from the PointCloudsManager's PointCloud.
+                 *
+                 * @param label The label to remove
+                 */
+                std::function<void(std::uint32_t label)> pointAgingCallback = nullptr;
+
                 /*! \brief Compute the sensor transform. */
                 void computeTransform();
                 void removePointCloud(std::shared_ptr<entities::StampedPointCloud> spcl);
@@ -97,12 +104,17 @@ namespace pcl_aggregator {
                  */
                 double getMaxAge() const;
 
-                /*! \brief Callback function to call when a PointCloud ages older than maxAge.
-                 * May be useful to remove points from the PointCloudsManager's PointCloud.
+                /*! \brief Get the defined point aging callback.
                  *
-                 * @param label The label to remove
+                 * @return The defined point aging callback.
                  */
-                std::function<void(std::uint32_t label)> pointAgingCallback = nullptr;
+                std::function<void(std::uint32_t label)> getPointAgingCallback() const;
+
+                /*! \brief Set the point aging callback.
+                 *
+                 * @param func The callback to set.
+                 */
+                void setPointAgingCallback(const std::function<void(std::uint32_t label)>& func);
 
 
             /*!
