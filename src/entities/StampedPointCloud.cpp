@@ -22,6 +22,7 @@ namespace pcl_aggregator {
 
         StampedPointCloud::~StampedPointCloud() {
 
+            std::lock_guard<std::mutex> lock(cloudMutex);
             // the StampedPointCloud owns its cloud's pointer and should destroy it
             this->cloud.reset();
         }
