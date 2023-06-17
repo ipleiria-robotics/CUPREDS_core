@@ -105,6 +105,7 @@ namespace pcl_aggregator {
                 if(c->getLabel() == spcl->getLabel()) {
                     // remove the pointcloud from the set
                     this->clouds.erase(c);
+                    break;
                 }
             }
 
