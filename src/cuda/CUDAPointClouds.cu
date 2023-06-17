@@ -17,7 +17,7 @@ namespace pcl_aggregator {
 
                 // create a stream
                 if ((err = cudaStreamCreate(&stream)) != cudaSuccess) {
-                    std::cerr << "Error creating the CUDA stream: " << cudaGetErrorString(err) << std::endl;
+                    std::cerr << "Error creating the label-setting CUDA stream: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
 
