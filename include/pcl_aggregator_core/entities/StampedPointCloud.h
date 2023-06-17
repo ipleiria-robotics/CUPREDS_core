@@ -85,7 +85,7 @@ namespace pcl_aggregator {
                  * @param cloud The PointCloud's smart pointer.
                  * @param label The 32-bit unsigned label to assign.
                  */
-                static void assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label);
+                static void assignLabelToPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label);
                 /*! \brief Remove points with a given label from the current PointCloud.
                  *
                  * @param label The label to remove.

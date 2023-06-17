@@ -78,9 +78,9 @@ namespace pcl_aggregator {
             this->cloudMutex.unlock();
         }
 
-        void StampedPointCloud::assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label) {
+        void StampedPointCloud::assignLabelToPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label) {
 
-            cuda::pointclouds::setPointCloudLabelCuda(std::move(cloud), label);
+            cuda::pointclouds::setPointCloudLabelCuda(cloud, label);
         }
 
         void StampedPointCloud::setOriginTopic(const std::string& origin) {

@@ -19,13 +19,13 @@ namespace pcl_aggregator {
              * @param cloud The PointCloud smart pointer to assign the label to.
              * @param label The 32-bit unsigned integer label.
              * */
-            __host__ void setPointCloudLabelCuda(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label);
+            __host__ void setPointCloudLabelCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label);
 
             /*! \brief Transform all the points of a PointCloud using an affine transformation.
              *
              * @param transform The affine transform to apply.
              */
-            __host__ void transformPointCloudCuda(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr, Eigen::Affine3d transform);
+            __host__ void transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, Eigen::Affine3d transform);
 
             /*! \param The kernel which sets the label on an individual point.
              *
