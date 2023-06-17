@@ -37,8 +37,9 @@ namespace pcl_aggregator {
 
         typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StampedPointCloud::getPointCloud() {
             this->cloudMutex.lock();
-            return this->cloud;
+            pcl::PointCloud<pcl::PointXYZRGBL>::Ptr c = this->cloud;
             this->cloudMutex.unlock();
+            return c;
         }
 
         std::string StampedPointCloud::getOriginTopic() const {
