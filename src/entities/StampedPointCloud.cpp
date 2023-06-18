@@ -98,6 +98,7 @@ namespace pcl_aggregator {
             if(this->cloud == nullptr)
                 return;
 
+            // call a CUDA thread to transform the pointcloud in-place
             cuda::pointclouds::transformPointCloudCuda(this->cloud, tf);
 
             this->cloudMutex.unlock();

@@ -101,6 +101,8 @@ namespace pcl_aggregator {
 
         void StreamManager::removePointCloud(std::shared_ptr<entities::StampedPointCloud> spcl) {
 
+            // ensure the pointer is moved to this method to delete its instance
+
             this->cloudMutex.lock();
             // remove points with that label from the merged pointcloud
             this->cloud->removePointsWithLabel(spcl->getLabel());
@@ -135,10 +137,12 @@ namespace pcl_aggregator {
             // create a stamped point cloud object to keep this pointcloud
             std::shared_ptr<entities::StampedPointCloud> spcl =
                     std::make_shared<entities::StampedPointCloud>(this->topicName);
+            // the new pointcloud is moved to the StampedPointCloud
             spcl->setPointCloud(std::move(cloud));
 
             if(!this->sensorTransformSet) {
                 // add the pointcloud to the queue
+                // the ownership is moved to the queue
                 this->cloudsNotTransformed.push(std::move(spcl));
                 return;
             }
@@ -149,6 +153,8 @@ namespace pcl_aggregator {
             auto transformRoutine = [this] (const std::shared_ptr<entities::StampedPointCloud>& spcl, const Eigen::Affine3d& tf) {
                 applyTransformRoutine(this, spcl, tf);
             };
+
+            // pointcloud is passed as a const reference: ownership is not moved and no copy is made
             std::thread transformationThread(transformRoutine, std::ref(spcl), sensorTransform);
 
             // start a thread to clear the pointclouds older than max age
