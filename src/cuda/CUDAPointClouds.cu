@@ -154,7 +154,7 @@ namespace pcl_aggregator {
                 }
             }
 
-            __host__ void concatenatePointCloudsCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud1,
+            __host__ int concatenatePointCloudsCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud1,
                                                      const pcl::PointCloud<pcl::PointXYZRGBL>& cloud2) {
 
                 cudaError_t err = cudaSuccess;
@@ -162,13 +162,13 @@ namespace pcl_aggregator {
 
                 if((err = cudaSetDevice(0)) != cudaSuccess) {
                     std::cerr << "Error setting the CUDA device: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -1;
                 }
 
                 // create a stream
                 if ((err = cudaStreamCreate(&stream)) != cudaSuccess) {
                     std::cerr << "Error creating pointcloud concatenation stream: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -2;
                 }
 
                 // resize the cloud1
@@ -180,7 +180,7 @@ namespace pcl_aggregator {
                 pcl::PointXYZRGBL *d_cloud1;
                 if ((err = cudaMalloc(&d_cloud1, cloud1NewSize * sizeof(pcl::PointXYZRGBL))) != cudaSuccess) {
                     std::cerr << "Error allocating memory for cloud1: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -3;
                 }
 
                 // copy cloud1 to the device
@@ -188,21 +188,21 @@ namespace pcl_aggregator {
                                       cudaMemcpyHostToDevice)) != cudaSuccess) {
                     std::cerr << "Error copying cloud1 to the device: " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -4;
                 }
 
                 // allocate cloud2 on the device
                 pcl::PointXYZRGBL *d_cloud2;
                 if((err = cudaMalloc(&d_cloud2, cloud2.size() * sizeof(pcl::PointXYZRGBL))) != cudaSuccess) {
                     std::cerr << "Error allocating memory for cloud2: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -5;
                 }
 
                 // copy cloud2 to the device
                 if((err = cudaMemcpy(d_cloud2, cloud2.points.data(), cloud2.size() * sizeof(pcl::PointXYZRGBL),
                                      cudaMemcpyHostToDevice)) != cudaSuccess) {
                     std::cerr << "Error copying cloud2 to the device: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -6;
                 }
 
                 // call the kernel
@@ -216,7 +216,7 @@ namespace pcl_aggregator {
                 // wait for the stream to synchronize the threads
                 if ((err = cudaStreamSynchronize(stream)) != cudaSuccess) {
                     std::cerr << "Error waiting for the concatenation stream: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -7;
                 }
 
                 // copy cloud1 back to the host
@@ -224,28 +224,30 @@ namespace pcl_aggregator {
                                       cudaMemcpyDeviceToHost)) != cudaSuccess) {
                     std::cerr << "Error copying cloud1 to the host: " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -8;
                 }
 
                 // free cloud1
                 if ((err = cudaFree(d_cloud1)) != cudaSuccess) {
                     std::cerr << "Error freeing cloud1 from device memory: " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -9;
                 }
 
                 // free cloud2
                 if ((err = cudaFree(d_cloud2)) != cudaSuccess) {
                     std::cerr << "Error freeing cloud2 from device memory: " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -10;
                 }
 
                 // destroy the stream
                 if ((err = cudaStreamDestroy(stream)) != cudaSuccess) {
                     std::cerr << "Error destroying the CUDA stream: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -11;
                 }
+
+                return 0;
 
             }
 
@@ -259,6 +261,7 @@ namespace pcl_aggregator {
                     return;
 
                 // copy the point from cloud2 to cloud1
+                // TODO: some illegal memory access here
                 cloud1[cloud1_original_size+idx] = cloud2[idx];
             }
         }
