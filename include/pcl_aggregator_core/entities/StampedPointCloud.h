@@ -9,6 +9,7 @@
 #include <pcl/point_cloud.h>
 #include <eigen3/Eigen/Dense>
 #include <cstdint>
+#include <set>
 #include <mutex>
 
 #define POINTCLOUD_ORIGIN_NONE "none"
@@ -48,11 +49,12 @@ namespace pcl_aggregator {
 
             public:
                 StampedPointCloud(std::string originTopic);
+                ~StampedPointCloud();
 
                 /*! \brief Get the PointCloud timestamp. */
                 unsigned long long getTimestamp() const;
                 /*! \brief Get a smart pointer to the PointCloud. */
-                typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr getPointCloud();
+                typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& getPointCloud();
                 /*! \brief Get the origin topic name. */
                 std::string getOriginTopic() const;
                 /*! \brief Get the label of the PointCloud. Should be unique. */
@@ -63,7 +65,7 @@ namespace pcl_aggregator {
                  * @param cloud The PointCloud smart pointer to move from.
                  * @param assignGeneratedLabel Assign a generated label or not. Generating the label has an additional overhead, but is usually needed.
                  * */
-                void setPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, bool assignGeneratedLabel=true);
+                void setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, bool assignGeneratedLabel=true);
                 /*! \brief Set the origin topic name.
                  * @param origin The topic name.
                  */
@@ -72,31 +74,39 @@ namespace pcl_aggregator {
                 /*! \brief Check if the transform to the robot base frame was computed. */
                 bool isTransformComputed() const;
                 /*! \brief Apply the robot frame transform. */
-                void applyTransform(Eigen::Affine3d tf);
+                void applyTransform(const Eigen::Affine3d& tf);
 
                 /*! \brief Check if the ICP transform was computed on this PointCloud. */
                 bool isIcpTransformComputed() const;
                 /*! \brief Apply the ICP transform. */
-                void applyIcpTransform(Eigen::Matrix4f tf);
+                void applyIcpTransform(const Eigen::Matrix4f& tf);
 
                 /*! \brief Assign a label to a PointCloud.
                  *
                  * @param cloud The PointCloud's smart pointer.
                  * @param label The 32-bit unsigned label to assign.
                  */
-                static void assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label);
+                static void assignLabelToPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label);
+
                 /*! \brief Remove points with a given label from the current PointCloud.
                  *
                  * @param label The label to remove.
                  */
                 void removePointsWithLabel(std::uint32_t label);
 
+                /*! \brief Remove points with the given labels from the current PointCloud.
+                 *
+                 * @param labels The labels to remove.
+                 */
+                void removePointsWithLabels(const std::set<std::uint32_t>& labels);
+
         };
 
         /*! \brief Custom comparison functor between stamped point clouds. The comparison criteria is the timestamp. */
         struct CompareStampedPointCloudPointers {
 
-            bool operator()(std::shared_ptr<StampedPointCloud> first, std::shared_ptr<StampedPointCloud> second) const {
+            bool operator()(const std::shared_ptr<StampedPointCloud>& first,
+                    const std::shared_ptr<StampedPointCloud>& second) const {
                 return first->getTimestamp() < second->getTimestamp();
             }
         };
