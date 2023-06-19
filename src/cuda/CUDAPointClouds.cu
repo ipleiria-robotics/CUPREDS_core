@@ -152,7 +152,7 @@ namespace pcl_aggregator {
 
                 // create a stream
                 if ((err = cudaStreamCreate(&stream)) != cudaSuccess) {
-                    std::cerr << "Error creating pointcloud transform stream: " << cudaGetErrorString(err) << std::endl;
+                    std::cerr << "Error creating pointcloud concatenation stream: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
 
