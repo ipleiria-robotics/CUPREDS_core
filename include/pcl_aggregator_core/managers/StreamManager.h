@@ -72,7 +72,7 @@ namespace pcl_aggregator {
                 /*! \brief Callback function to call when the StreamManager has a new PointCloud ready.
                  * May be useful to add PointClouds to the
                  */
-                std::function<void(const pcl::PointCloud<pcl::PointXYZRGBL>& cloud)> pointCloudReadyCallback = nullptr;
+                std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>& cloud)> pointCloudReadyCallback = nullptr;
 
                 /*! \brief Compute the sensor transform. */
                 void computeTransform();
@@ -131,7 +131,7 @@ namespace pcl_aggregator {
                  *
                  * @param func The callback to set.
                  */
-                void setPointCloudReadyCallback(const std::function<void(const pcl::PointCloud<pcl::PointXYZRGBL>& cloud)>& func);
+                void setPointCloudReadyCallback(const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>& cloud)>& func);
 
 
             /*!

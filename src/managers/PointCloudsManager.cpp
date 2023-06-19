@@ -119,7 +119,7 @@ namespace pcl_aggregator {
             return *(this->mergedCloud.getPointCloud());
         }
 
-        bool PointCloudsManager::appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL> &input) {
+        bool PointCloudsManager::appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL> &input) {
 
             /* lock access to the pointcloud mutex by other threads.
              * will only be released after appending the input pointcloud. */
@@ -144,14 +144,17 @@ namespace pcl_aggregator {
 
                     return icp.hasConverged(); // return true if alignment was possible */
 
-                    *(this->mergedCloud.getPointCloud()) += input;
+                    cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), input);
                     return false;
 
                 } else {
-                    *(this->mergedCloud.getPointCloud()) = input;
+                    cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), input);
                 }
 
             }
+
+            // the points are no longer needed
+            input.clear();
 
             this->cloudMutex.unlock();
 
@@ -164,7 +167,7 @@ namespace pcl_aggregator {
             this->mergedCloud.removePointsWithLabel(label);
         }
 
-        void PointCloudsManager::addStreamPointCloud(const pcl::PointCloud<pcl::PointXYZRGBL>& cloud) {
+        void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>& cloud) {
 
             this->appendToMerged(cloud);
         }

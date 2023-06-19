@@ -3,6 +3,7 @@
 //
 
 #include <pcl_aggregator_core/managers/StreamManager.h>
+#include "pcl_aggregator_core/cuda/CUDAPointClouds.cuh"
 
 namespace pcl_aggregator {
     namespace managers {
@@ -197,17 +198,20 @@ namespace pcl_aggregator {
 
                         */
 
-                        *(this->cloud->getPointCloud()) += *(spcl->getPointCloud());
+                        cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud()));
 
                     } else {
-                        *(this->cloud->getPointCloud()) = *(spcl->getPointCloud());
+                        cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud()));
                     }
+
+                    // the points are no longer needed
+                    spcl->getPointCloud()->clear();
 
                     if(this->pointCloudReadyCallback != nullptr) {
 
                         // call the callback on a new thread
                         std::thread pointCloudCallbackThread = std::thread(this->pointCloudReadyCallback,
-                                                                           *(this->cloud->getPointCloud()));
+                                                                           std::ref(*this->cloud->getPointCloud()));
                         pointCloudCallbackThread.detach();
                     }
 
@@ -288,7 +292,7 @@ namespace pcl_aggregator {
         }
 
         void StreamManager::setPointCloudReadyCallback(
-                const std::function<void(const pcl::PointCloud<pcl::PointXYZRGBL> &)> &func) {
+                const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL> &)> &func) {
             this->pointCloudReadyCallback = func;
         }
 

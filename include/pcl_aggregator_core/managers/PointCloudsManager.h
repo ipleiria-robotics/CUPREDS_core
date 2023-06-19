@@ -12,6 +12,7 @@
 #include <thread>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
 #include <pcl_aggregator_core/managers/StreamManager.h>
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 
@@ -56,7 +57,7 @@ namespace pcl_aggregator {
                  * @param input The shared pointer to the input PointCloud.
                  * @return Flag denoting if ICP was possible or not.
                  */
-                bool appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>& input);
+                bool appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL>& input);
 
                 /*! \brief Clear the points of the merged PointCloud. */
                 void clearMergedCloud();
@@ -80,7 +81,7 @@ namespace pcl_aggregator {
                  *
                  * @param cloud The PointCloud to add.
                  */
-                void addStreamPointCloud(const pcl::PointCloud<pcl::PointXYZRGBL>& cloud);
+                void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>& cloud);
 
             public:
                 PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory);
