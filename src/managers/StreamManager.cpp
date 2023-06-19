@@ -11,41 +11,49 @@ namespace pcl_aggregator {
         void maxAgeWatchingRoutine(StreamManager* instance) {
 
             // lambda function which removes a pointcloud from the merged version
-            auto pointCloudRemovalRoutine = [instance](std::shared_ptr<entities::StampedPointCloud> spcl) {
-                instance->removePointCloud(std::move(spcl));
+            auto pointCloudRemovalRoutine = [instance](std::set<std::uint32_t> labels) {
+                instance->removePointClouds(labels);
             };
+
+            std::set<std::uint32_t> labelsToRemove;
 
             while(instance->keepAgeWatcherAlive) {
 
                 // lock access to the pointcloud set
                 instance->setMutex.lock();
 
-                for(auto iter : instance->clouds) {
+                for(auto& iter : instance->clouds) {
 
                     // this pointcloud is older than the max age
+                    // TODO: implement millisecond precision
                     if(utils::Utils::getAgeInSecs(iter->getTimestamp()) >= instance->maxAge) {
-                        // start a detached thread to remove it
-                        /*
-                         * using a deteched thread instead of sequentially to prevent from having this iteration
-                         * going for too long, keeping access to the set constantly locked
-                         */
 
-                        std::uint32_t label = iter->getLabel();
-
-                        std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine,std::move(iter));
-                        pointCloudRemovalThread.detach();
-
-                        // the point aging callback was set
-                        if(instance->pointAgingCallback != nullptr) {
-                            // call a thread to run the callback
-                            std::thread callbackThread = std::thread(instance->pointAgingCallback, label);
-                            callbackThread.detach();
-                        }
+                        // add the label to the set to remove
+                        labelsToRemove.insert(iter->getLabel());
                     }
+
+                    // TODO: review what happens to the pointer, potential memory leak here
                 }
 
-                // unlock access to hte set
+                // unlock access to the set
                 instance->setMutex.unlock();
+
+
+                // start a detached thread to the pointclouds
+                /*
+                 * using a deteched thread instead of sequentially to prevent from having this iteration
+                 * going for too long, keeping access to the set constantly locked
+                 */
+
+                std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine, labelsToRemove);
+                pointCloudRemovalThread.detach();
+
+                // the point aging callback was set
+                if(instance->pointAgingCallback != nullptr) {
+                    // call a thread to run the callback
+                    std::thread callbackThread = std::thread(instance->pointAgingCallback, labelsToRemove);
+                    callbackThread.detach();
+                }
 
                 // sleep for a second before repeating
                 std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -100,13 +108,13 @@ namespace pcl_aggregator {
             }
         }
 
-        void StreamManager::removePointCloud(std::shared_ptr<entities::StampedPointCloud> spcl) {
+        void StreamManager::removePointCloud(std::uint32_t label) {
 
             // ensure the pointer is moved to this method to delete its instance
 
             this->cloudMutex.lock();
             // remove points with that label from the merged pointcloud
-            this->cloud->removePointsWithLabel(spcl->getLabel());
+            this->cloud->removePointsWithLabel(label);
             this->cloudMutex.unlock();
 
 
@@ -115,14 +123,12 @@ namespace pcl_aggregator {
 
             // iterate the set
             for(const auto& c : this->clouds) {
-                if(c->getLabel() == spcl->getLabel()) {
+                if(c->getLabel() == label) {
                     // remove the pointcloud from the set
                     this->clouds.erase(c);
                     break;
                 }
             }
-
-            spcl.reset();
 
         }
 
@@ -270,7 +276,7 @@ namespace pcl_aggregator {
                     static_cast<long long>(instance->maxAge * 1000)));
 
             // call the pointcloud removal method
-            instance->removePointCloud(std::move(spcl));
+            instance->removePointCloud(spcl->getLabel());
         }
 
         void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud>& spcl,
@@ -278,11 +284,11 @@ namespace pcl_aggregator {
             spcl->applyIcpTransform(tf);
         }
 
-        std::function<void(std::uint32_t label)> StreamManager::getPointAgingCallback() const {
+        std::function<void(std::set<std::uint32_t> labels)> StreamManager::getPointAgingCallback() const {
             return this->pointAgingCallback;
         }
 
-        void StreamManager::setPointAgingCallback(const std::function<void(std::uint32_t)>& func) {
+        void StreamManager::setPointAgingCallback(const std::function<void(std::set<std::uint32_t>)>& func) {
             this->pointAgingCallback = func;
         }
 
@@ -294,6 +300,11 @@ namespace pcl_aggregator {
         void StreamManager::setPointCloudReadyCallback(
                 const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL> &)> &func) {
             this->pointCloudReadyCallback = func;
+        }
+
+        void StreamManager::removePointClouds(std::set<std::uint32_t> labels) {
+            for(auto& label : labels)
+                this->removePointCloud(label);
         }
 
 

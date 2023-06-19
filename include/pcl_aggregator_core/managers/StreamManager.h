@@ -67,7 +67,7 @@ namespace pcl_aggregator {
                  *
                  * @param label The label to remove
                  */
-                std::function<void(std::uint32_t label)> pointAgingCallback = nullptr;
+                std::function<void(std::set<std::uint32_t> labels)> pointAgingCallback = nullptr;
 
                 /*! \brief Callback function to call when the StreamManager has a new PointCloud ready.
                  * May be useful to add PointClouds to the
@@ -76,7 +76,10 @@ namespace pcl_aggregator {
 
                 /*! \brief Compute the sensor transform. */
                 void computeTransform();
-                void removePointCloud(std::shared_ptr<entities::StampedPointCloud> spcl);
+
+                void removePointCloud(std::uint32_t label);
+
+                void removePointClouds(std::set<std::uint32_t> labels);
 
             public:
                 StreamManager(const std::string& topicName, double maxAge);
@@ -113,13 +116,13 @@ namespace pcl_aggregator {
                  *
                  * @return The defined point aging callback.
                  */
-                std::function<void(std::uint32_t label)> getPointAgingCallback() const;
+                std::function<void(std::set<std::uint32_t> labels)> getPointAgingCallback() const;
 
                 /*! \brief Set the point aging callback.
                  *
                  * @param func The callback to set.
                  */
-                void setPointAgingCallback(const std::function<void(std::uint32_t label)>& func);
+                void setPointAgingCallback(const std::function<void(std::set<std::uint32_t> labels)>& func);
 
                 /*! \brief Get the defined PointCloud ready callback.
                  *
