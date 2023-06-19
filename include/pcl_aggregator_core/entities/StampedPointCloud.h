@@ -9,6 +9,7 @@
 #include <pcl/point_cloud.h>
 #include <eigen3/Eigen/Dense>
 #include <cstdint>
+#include <set>
 #include <mutex>
 
 #define POINTCLOUD_ORIGIN_NONE "none"
@@ -86,11 +87,18 @@ namespace pcl_aggregator {
                  * @param label The 32-bit unsigned label to assign.
                  */
                 static void assignLabelToPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label);
+
                 /*! \brief Remove points with a given label from the current PointCloud.
                  *
                  * @param label The label to remove.
                  */
                 void removePointsWithLabel(std::uint32_t label);
+
+                /*! \brief Remove points with the given labels from the current PointCloud.
+                 *
+                 * @param labels The labels to remove.
+                 */
+                void removePointsWithLabels(std::set<std::uint32_t> labels);
 
         };
 

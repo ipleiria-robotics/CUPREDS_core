@@ -134,5 +134,21 @@ namespace pcl_aggregator {
 
             this->cloudMutex.unlock();
         }
+
+        void StampedPointCloud::removePointsWithLabels(std::set<std::uint32_t> labels) {
+
+            this->cloudMutex.lock();
+
+            auto it = this->cloud->begin();
+            while (it != this->cloud->end()) {
+                // if the label is in the set, remove it
+                if (labels.find(it->label) != labels.end())
+                    it = this->cloud->erase(it);
+                else
+                    ++it;
+            }
+
+            this->cloudMutex.unlock();
+        }
     } // pcl_aggregator
 } // entities
