@@ -24,12 +24,17 @@ namespace pcl_aggregator {
 
                 for(auto& iter : instance->clouds) {
 
+                    /* the set is ordered by ascending timestamp.
+                     * When we find the first pointcloud which is not older than the max age, we can stop. */
+
                     // this pointcloud is older than the max age
-                    // TODO: implement millisecond precision
-                    if(utils::Utils::getAgeInSecs(iter->getTimestamp()) >= instance->maxAge) {
+                    if(iter->getTimestamp() <= utils::Utils::getMaxTimestampForAge(instance->maxAge)) {
 
                         // add the label to the set to remove
                         labelsToRemove.insert(iter->getLabel());
+                    } else {
+                        // the set is ordered by ascending timestamp, so we can stop here
+                        break;
                     }
 
                     // TODO: review what happens to the pointer, potential memory leak here
@@ -46,11 +51,13 @@ namespace pcl_aggregator {
                  */
 
                 std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine, labelsToRemove);
+                pthread_setname_np(pointCloudRemovalThread.native_handle(), "pointCloudRemovalThread");
                 pointCloudRemovalThread.detach();
 
                 // the point aging callback was set
                 if(instance->pointAgingCallback != nullptr) {
                     // call a thread to run the callback
+                    // if it was done in the same thread, it would delay the routine
                     std::thread callbackThread = std::thread(instance->pointAgingCallback, labelsToRemove);
                     callbackThread.detach();
                 }
@@ -67,6 +74,7 @@ namespace pcl_aggregator {
 
             // start the age watcher thread
             this->maxAgeWatcherThread = std::thread(maxAgeWatchingRoutine, this);
+            pthread_setname_np(this->maxAgeWatcherThread.native_handle(), "maxAgeWatcherThread");
 
             // this thread can dettach from the main thread
             this->maxAgeWatcherThread.detach();
