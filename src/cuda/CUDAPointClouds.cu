@@ -15,6 +15,11 @@ namespace pcl_aggregator {
                 // declare the device input point array
                 pcl::PointXYZRGBL *d_cloud;
 
+                if((err = cudaSetDevice(0)) != cudaSuccess) {
+                    std::cerr << "Error setting the CUDA device: " << cudaGetErrorString(err) << std::endl;
+                    return;
+                }
+
                 // create a stream
                 if ((err = cudaStreamCreate(&stream)) != cudaSuccess) {
                     std::cerr << "Error creating the label-setting CUDA stream: " << cudaGetErrorString(err) << std::endl;
@@ -30,7 +35,7 @@ namespace pcl_aggregator {
                 // copy the input pointcloud to the device
                 if ((err = cudaMemcpy(d_cloud, cloud->points.data(), cloud->size() * sizeof(pcl::PointXYZRGBL),
                                       cudaMemcpyHostToDevice)) != cudaSuccess) {
-                    std::cerr << "Error copying the input pointcloud to the device: " << cudaGetErrorString(err)
+                    std::cerr << "Error copying the input pointcloud to the device (set label): " << cudaGetErrorString(err)
                               << std::endl;
                     return;
                 }
@@ -42,14 +47,14 @@ namespace pcl_aggregator {
 
                 // wait for the stream
                 if ((err = cudaStreamSynchronize(stream)) != cudaSuccess) {
-                    std::cerr << "Error waiting for the stream: " << cudaGetErrorString(err) << std::endl;
+                    std::cerr << "Error waiting for the label-setting stream: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
 
                 // copy the output pointcloud back to the host
                 if ((err = cudaMemcpy(cloud->points.data(), d_cloud, cloud->size() * sizeof(pcl::PointXYZRGBL),
                                       cudaMemcpyDeviceToHost)) != cudaSuccess) {
-                    std::cerr << "Error copying the output pointcloud to the host: " << cudaGetErrorString(err)
+                    std::cerr << "Error copying the output pointcloud to the host (labelling): " << cudaGetErrorString(err)
                               << std::endl;
                     return;
                 }
@@ -80,6 +85,11 @@ namespace pcl_aggregator {
                 cudaError_t err = cudaSuccess;
                 cudaStream_t stream;
 
+                if((err = cudaSetDevice(0)) != cudaSuccess) {
+                    std::cerr << "Error setting the CUDA device: " << cudaGetErrorString(err) << std::endl;
+                    return;
+                }
+
                 if ((err = cudaStreamCreate(&stream)) != cudaSuccess) {
                     std::cerr << "Error creating pointcloud transform stream: " << cudaGetErrorString(err) << std::endl;
                     return;
@@ -95,7 +105,7 @@ namespace pcl_aggregator {
                 // copy the pointcloud to the device
                 if ((err = cudaMemcpy(d_cloud, cloud->points.data(), cloud->size() * sizeof(pcl::PointXYZRGBL),
                                       cudaMemcpyHostToDevice)) != cudaSuccess) {
-                    std::cerr << "Error copying the input pointcloud to the device: " << cudaGetErrorString(err)
+                    std::cerr << "Error copying the input pointcloud to the device (transform): " << cudaGetErrorString(err)
                               << std::endl;
                     return;
                 }
@@ -107,14 +117,14 @@ namespace pcl_aggregator {
 
                 // wait for the stream
                 if ((err = cudaStreamSynchronize(stream)) != cudaSuccess) {
-                    std::cerr << "Error waiting for the stream: " << cudaGetErrorString(err) << std::endl;
+                    std::cerr << "Error waiting for the transform stream: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
 
                 // copy the output pointcloud back to the host
                 if ((err = cudaMemcpy(cloud->points.data(), d_cloud, cloud->size() * sizeof(pcl::PointXYZRGBL),
                                       cudaMemcpyDeviceToHost)) != cudaSuccess) {
-                    std::cerr << "Error copying the output pointcloud to the host: " << cudaGetErrorString(err)
+                    std::cerr << "Error copying the output pointcloud to the host (transform): " << cudaGetErrorString(err)
                               << std::endl;
                     return;
                 }
@@ -150,6 +160,11 @@ namespace pcl_aggregator {
                 cudaError_t err = cudaSuccess;
                 cudaStream_t stream;
 
+                if((err = cudaSetDevice(0)) != cudaSuccess) {
+                    std::cerr << "Error setting the CUDA device: " << cudaGetErrorString(err) << std::endl;
+                    return;
+                }
+
                 // create a stream
                 if ((err = cudaStreamCreate(&stream)) != cudaSuccess) {
                     std::cerr << "Error creating pointcloud concatenation stream: " << cudaGetErrorString(err) << std::endl;
@@ -158,17 +173,18 @@ namespace pcl_aggregator {
 
                 // resize the cloud1
                 std::size_t cloud1OriginalSize = cloud1->size();
-                cloud1->resize(cloud1OriginalSize + cloud2.size());
+                std::size_t cloud1NewSize = cloud1OriginalSize + cloud2.size();
+                cloud1->resize(cloud1NewSize);
 
                 // allocate cloud1 on the device - allocate with sufficient space to the concatenation
                 pcl::PointXYZRGBL *d_cloud1;
-                if ((err = cudaMalloc(&d_cloud1, cloud1->size() * sizeof(pcl::PointXYZRGBL))) != cudaSuccess) {
+                if ((err = cudaMalloc(&d_cloud1, cloud1NewSize * sizeof(pcl::PointXYZRGBL))) != cudaSuccess) {
                     std::cerr << "Error allocating memory for cloud1: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
 
                 // copy cloud1 to the device
-                if ((err = cudaMemcpy(d_cloud1, cloud1->points.data(), cloud1->size() * sizeof(pcl::PointXYZRGBL),
+                if ((err = cudaMemcpy(d_cloud1, cloud1->points.data(), cloud1NewSize * sizeof(pcl::PointXYZRGBL),
                                       cudaMemcpyHostToDevice)) != cudaSuccess) {
                     std::cerr << "Error copying cloud1 to the device: " << cudaGetErrorString(err)
                               << std::endl;
@@ -199,12 +215,12 @@ namespace pcl_aggregator {
 
                 // wait for the stream to synchronize the threads
                 if ((err = cudaStreamSynchronize(stream)) != cudaSuccess) {
-                    std::cerr << "Error waiting for the stream: " << cudaGetErrorString(err) << std::endl;
+                    std::cerr << "Error waiting for the concatenation stream: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
 
                 // copy cloud1 back to the host
-                if ((err = cudaMemcpy(cloud1->points.data(), d_cloud1, cloud1->size() * sizeof(pcl::PointXYZRGBL),
+                if ((err = cudaMemcpy(cloud1->points.data(), d_cloud1, cloud1NewSize * sizeof(pcl::PointXYZRGBL),
                                       cudaMemcpyDeviceToHost)) != cudaSuccess) {
                     std::cerr << "Error copying cloud1 to the host: " << cudaGetErrorString(err)
                               << std::endl;
