@@ -42,7 +42,7 @@ namespace pcl_aggregator {
             return this->timestamp;
         }
 
-        typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StampedPointCloud::getPointCloud() {
+        typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& StampedPointCloud::getPointCloud() {
             std::lock_guard<std::mutex> lock(cloudMutex);
             return cloud;
         }

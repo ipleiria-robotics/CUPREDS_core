@@ -53,7 +53,7 @@ namespace pcl_aggregator {
                 /*! \brief Get the PointCloud timestamp. */
                 unsigned long long getTimestamp() const;
                 /*! \brief Get a smart pointer to the PointCloud. */
-                typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr getPointCloud();
+                typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& getPointCloud();
                 /*! \brief Get the origin topic name. */
                 std::string getOriginTopic() const;
                 /*! \brief Get the label of the PointCloud. Should be unique. */

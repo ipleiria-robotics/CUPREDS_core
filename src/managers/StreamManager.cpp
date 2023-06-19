@@ -255,6 +255,7 @@ namespace pcl_aggregator {
             spcl->applyTransform(tf);
         }
 
+        // NO LONGER USED: now, a single watching thread is used instead, to reduce overhead
         void pointCloudAutoRemoveRoutine(StreamManager* instance,
                                                 std::shared_ptr<entities::StampedPointCloud> spcl) {
 
