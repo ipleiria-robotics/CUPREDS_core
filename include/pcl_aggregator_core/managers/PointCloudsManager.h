@@ -74,7 +74,7 @@ namespace pcl_aggregator {
                  *
                  * @param label The label to remove.
                  */
-                void removePointsByLabel(std::uint32_t label);
+                void removePointsByLabel(std::set<std::uint32_t> labels);
 
                 /*! \brief Add the processed PointCloud of a given stream to the merged.
                  * Used typically when the Stream finishes processing a new PointCloud.

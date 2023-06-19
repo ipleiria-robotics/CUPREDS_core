@@ -161,10 +161,10 @@ namespace pcl_aggregator {
             return false;
         }
 
-        void PointCloudsManager::removePointsByLabel(std::uint32_t label) {
+        void PointCloudsManager::removePointsByLabel(std::set<std::uint32_t> labels) {
 
             // remove the points with the label
-            this->mergedCloud.removePointsWithLabel(label);
+            this->mergedCloud.removePointsWithLabels(labels);
         }
 
         void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>& cloud) {
