@@ -125,20 +125,20 @@ namespace pcl_aggregator {
 
         }
 
-        void StreamManager::addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud) {
+        void StreamManager::addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr newCloud) {
             // check the incoming pointcloud for null or empty
-            if(cloud == nullptr)
+            if(newCloud == nullptr)
                 return;
-            if(cloud->empty()) {
-                cloud.reset();
+            if(newCloud->empty()) {
+                newCloud.reset();
                 return;
             }
 
-            // create a stamped point cloud object to keep this pointcloud
+            // create a stamped point newCloud object to keep this pointcloud
             std::shared_ptr<entities::StampedPointCloud> spcl =
                     std::make_shared<entities::StampedPointCloud>(this->topicName);
             // the new pointcloud is moved to the StampedPointCloud
-            spcl->setPointCloud(std::move(cloud));
+            spcl->setPointCloud(std::move(newCloud));
 
             if(!this->sensorTransformSet) {
                 // add the pointcloud to the queue
@@ -197,10 +197,10 @@ namespace pcl_aggregator {
 
                         */
 
-                        *this->cloud->getPointCloud() += *spcl->getPointCloud();
+                        *(this->cloud->getPointCloud()) += *(spcl->getPointCloud());
 
                     } else {
-                        *this->cloud->getPointCloud() = *spcl->getPointCloud();
+                        *(this->cloud->getPointCloud()) = *(spcl->getPointCloud());
                     }
 
                     if(this->pointCloudReadyCallback != nullptr) {
