@@ -115,11 +115,14 @@ namespace pcl_aggregator {
 
             // this->downsampleMergedCloud();
 
+            // TODO: this mutex isn't being released
             std::lock_guard<std::mutex> lock(this->cloudMutex);
             return *(this->mergedCloud.getPointCloud());
         }
 
         bool PointCloudsManager::appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL> &input) {
+
+            bool couldAlign = false;
 
             /* lock access to the pointcloud mutex by other threads.
              * will only be released after appending the input pointcloud. */
@@ -145,7 +148,7 @@ namespace pcl_aggregator {
                     return icp.hasConverged(); // return true if alignment was possible */
 
                     cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), input);
-                    return false;
+                    couldAlign = false;
 
                 } else {
                     cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), input);
@@ -158,10 +161,10 @@ namespace pcl_aggregator {
 
             this->cloudMutex.unlock();
 
-            return false;
+            return couldAlign;
         }
 
-        void PointCloudsManager::removePointsByLabel(std::set<std::uint32_t> labels) {
+        void PointCloudsManager::removePointsByLabel(const std::set<std::uint32_t>& labels) {
 
             // remove the points with the label
             this->mergedCloud.removePointsWithLabels(labels);
