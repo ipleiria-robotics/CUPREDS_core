@@ -226,10 +226,14 @@ namespace pcl_aggregator {
 
                         */
 
-                        cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud()));
+                        if(cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud())) < 0) {
+                            std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
+                        }
 
                     } else {
-                        cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud()));
+                        if(cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud())) < 0) {
+                            std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
+                        }
                     }
 
                     // the points are no longer needed
@@ -237,10 +241,15 @@ namespace pcl_aggregator {
 
                     if(this->pointCloudReadyCallback != nullptr) {
 
+                        /*
                         // call the callback on a new thread
+                         // WARNING: calling this thread as-is causes a race condition because the pointcloud is changed
                         std::thread pointCloudCallbackThread = std::thread(this->pointCloudReadyCallback,
                                                                            std::ref(*this->cloud->getPointCloud()));
                         pointCloudCallbackThread.detach();
+                         */
+
+                        this->pointCloudReadyCallback(std::ref(*this->cloud->getPointCloud()));
                     }
 
                     this->cloudMutex.unlock();
