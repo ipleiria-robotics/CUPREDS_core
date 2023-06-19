@@ -235,7 +235,15 @@ namespace pcl_aggregator {
 
             __global__ void concatenatePointCloudsKernel(pcl::PointXYZRGBL* cloud1, std::size_t cloud1_original_size,
                                                          pcl::PointXYZRGBL* cloud2, std::size_t cloud2_size) {
-                // TODO
+                // calculate the index
+                int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+                // check boundaries - should range between 0 and cloud2_size
+                if(idx >= cloud2_size)
+                    return;
+
+                // copy the point from cloud2 to cloud1
+                cloud1[cloud1_original_size+idx] = cloud2[idx];
             }
         }
     } // pcl_aggregator
