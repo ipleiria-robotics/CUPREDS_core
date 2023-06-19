@@ -69,7 +69,7 @@ namespace pcl_aggregator {
             }
 
             __global__ void setPointLabelKernel(pcl::PointXYZRGBL *points, std::uint32_t label, int num_points) {
-                int idx = blockIdx.x * blockDim.x + threadIdx.x;
+                std::size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
                 if (idx < num_points) {
                     points[idx].label = label;
                 }
@@ -134,7 +134,7 @@ namespace pcl_aggregator {
             }
 
             __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4d transform, int num_points) {
-                int idx = blockIdx.x * blockDim.x + threadIdx.x;
+                std::size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
                 if (idx < num_points) {
                     Eigen::Vector4d p(points[idx].x, points[idx].y, points[idx].z, 1.0f);
                     p = transform * p;
@@ -236,7 +236,7 @@ namespace pcl_aggregator {
             __global__ void concatenatePointCloudsKernel(pcl::PointXYZRGBL* cloud1, std::size_t cloud1_original_size,
                                                          pcl::PointXYZRGBL* cloud2, std::size_t cloud2_size) {
                 // calculate the index
-                int idx = blockIdx.x * blockDim.x + threadIdx.x;
+                std::size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 
                 // check boundaries - should range between 0 and cloud2_size
                 if(idx >= cloud2_size)
