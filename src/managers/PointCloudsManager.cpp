@@ -45,6 +45,7 @@ namespace pcl_aggregator {
 
             // start the memory monitoring thread
             this->memoryMonitoringThread = std::thread(memoryMonitoringRoutine, this);
+            pthread_setname_np(this->memoryMonitoringThread.native_handle(), "memory_monitoring_thread");
             this->memoryMonitoringThread.detach();
         }
 
