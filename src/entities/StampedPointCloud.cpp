@@ -72,15 +72,23 @@ namespace pcl_aggregator {
             // set the new
             this->cloud = std::move(c);
 
-            if(assignGeneratedLabel)
-                StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
+            if(this->cloud != nullptr) {
+                if (assignGeneratedLabel)
+                    StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
+            } else {
+                std::cerr << "StampedPointCloud::setPointCloud: cloud is null!" << std::endl;
+            }
 
             this->cloudMutex.unlock();
         }
 
         void StampedPointCloud::assignLabelToPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label) {
 
-            cuda::pointclouds::setPointCloudLabelCuda(cloud, label);
+            if(cloud != nullptr) {
+                cuda::pointclouds::setPointCloudLabelCuda(cloud, label);
+            } else {
+                std::cerr << "StampedPointCloud::assignLabelToPointCloud: cloud is null!" << std::endl;
+            }
         }
 
         void StampedPointCloud::setOriginTopic(const std::string& origin) {
@@ -95,11 +103,13 @@ namespace pcl_aggregator {
 
             this->cloudMutex.lock();
 
-            if(this->cloud == nullptr)
-                return;
+            if(this->cloud != nullptr) {
 
-            // call a CUDA thread to transform the pointcloud in-place
-            cuda::pointclouds::transformPointCloudCuda(this->cloud, tf);
+                // call a CUDA thread to transform the pointcloud in-place
+                cuda::pointclouds::transformPointCloudCuda(this->cloud, tf);
+            } else {
+                std::cerr << "StampedPointCloud::applyTransform: cloud is null!" << std::endl;
+            }
 
             this->cloudMutex.unlock();
 
