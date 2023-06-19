@@ -105,7 +105,8 @@ namespace pcl_aggregator {
         /*! \brief Custom comparison functor between stamped point clouds. The comparison criteria is the timestamp. */
         struct CompareStampedPointCloudPointers {
 
-            bool operator()(std::shared_ptr<StampedPointCloud> first, std::shared_ptr<StampedPointCloud> second) const {
+            bool operator()(const std::shared_ptr<StampedPointCloud>& first,
+                    const std::shared_ptr<StampedPointCloud>& second) const {
                 return first->getTimestamp() < second->getTimestamp();
             }
         };
