@@ -5,6 +5,7 @@
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 #include <pcl_aggregator_core/utils/Utils.h>
 #include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
+#include <utility>
 
 namespace pcl_aggregator {
     namespace entities {
@@ -17,6 +18,13 @@ namespace pcl_aggregator {
             this->label = generateLabel();
 
             this->cloud = pcl::PointCloud<pcl::PointXYZRGBL>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBL>());
+        }
+
+        StampedPointCloud::~StampedPointCloud() {
+
+            std::lock_guard<std::mutex> lock(cloudMutex);
+            // the StampedPointCloud owns its cloud's pointer and should destroy it
+            this->cloud.reset();
         }
 
         // generate a 32-bit label and assign
@@ -34,8 +42,9 @@ namespace pcl_aggregator {
             return this->timestamp;
         }
 
-        typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr StampedPointCloud::getPointCloud() const {
-            return this->cloud;
+        typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& StampedPointCloud::getPointCloud() {
+            std::lock_guard<std::mutex> lock(cloudMutex);
+            return cloud;
         }
 
         std::string StampedPointCloud::getOriginTopic() const {
@@ -55,17 +64,31 @@ namespace pcl_aggregator {
         }
 
         void StampedPointCloud::setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr c, bool assignGeneratedLabel) {
+            this->cloudMutex.lock();
+
+            // free the old pointcloud
             this->cloud.reset();
 
-            this->cloud = c;
+            // set the new
+            this->cloud = std::move(c);
 
-            if(assignGeneratedLabel)
-                this->assignLabelToPointCloud(this->cloud, this->label);
+            if(this->cloud != nullptr) {
+                if (assignGeneratedLabel)
+                    StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
+            } else {
+                std::cerr << "StampedPointCloud::setPointCloud: cloud is null!" << std::endl;
+            }
+
+            this->cloudMutex.unlock();
         }
 
-        void StampedPointCloud::assignLabelToPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, std::uint32_t label) {
+        void StampedPointCloud::assignLabelToPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label) {
 
-            cuda::pointclouds::setPointCloudLabelCuda(cloud, label);
+            if(cloud != nullptr) {
+                cuda::pointclouds::setPointCloudLabelCuda(cloud, label);
+            } else {
+                std::cerr << "StampedPointCloud::assignLabelToPointCloud: cloud is null!" << std::endl;
+            }
         }
 
         void StampedPointCloud::setOriginTopic(const std::string& origin) {
@@ -76,18 +99,25 @@ namespace pcl_aggregator {
             return this->transformComputed;
         }
 
-        void StampedPointCloud::applyTransform(Eigen::Affine3d tf) {
+        void StampedPointCloud::applyTransform(const Eigen::Affine3d& tf) {
 
-            if(this->cloud == nullptr)
-                return;
+            this->cloudMutex.lock();
 
-            cuda::pointclouds::transformPointCloudCuda(this->cloud, tf);
+            if(this->cloud != nullptr) {
+
+                // call a CUDA thread to transform the pointcloud in-place
+                cuda::pointclouds::transformPointCloudCuda(this->cloud, tf);
+            } else {
+                std::cerr << "StampedPointCloud::applyTransform: cloud is null!" << std::endl;
+            }
+
+            this->cloudMutex.unlock();
 
             // pcl::transformPointCloud(*this->cloud, *this->cloud, tf);
             this->transformComputed = true;
         }
 
-        void StampedPointCloud::applyIcpTransform(Eigen::Matrix4f tf) {
+        void StampedPointCloud::applyIcpTransform(const Eigen::Matrix4f& tf) {
 
             if(!icpTransformComputed) {
 
@@ -102,6 +132,8 @@ namespace pcl_aggregator {
 
         void StampedPointCloud::removePointsWithLabel(std::uint32_t label) {
 
+            this->cloudMutex.lock();
+
             auto it = this->cloud->begin();
             while (it != this->cloud->end()) {
                 if (it->label == label)
@@ -109,6 +141,24 @@ namespace pcl_aggregator {
                 else
                     ++it;
             }
+
+            this->cloudMutex.unlock();
+        }
+
+        void StampedPointCloud::removePointsWithLabels(const std::set<std::uint32_t>& labels) {
+
+            this->cloudMutex.lock();
+
+            auto it = this->cloud->begin();
+            while (it != this->cloud->end()) {
+                // if the label is in the set, remove it
+                if (labels.find(it->label) != labels.end())
+                    it = this->cloud->erase(it);
+                else
+                    ++it;
+            }
+
+            this->cloudMutex.unlock();
         }
     } // pcl_aggregator
 } // entities

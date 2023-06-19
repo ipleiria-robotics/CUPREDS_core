@@ -26,7 +26,7 @@ namespace pcl_aggregator {
 
                 // create the stream
                 if((err = cudaStreamCreate(&stream)) != cudaSuccess) {
-                    std::cerr << "Error creating CUDA stream: " << cudaGetErrorString(err) << std::endl;
+                    std::cerr << "Error creating the deprojection CUDA stream: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
 

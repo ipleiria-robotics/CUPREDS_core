@@ -22,9 +22,13 @@ namespace pcl_aggregator {
                 static unsigned long long getCurrentTimeMillis();
 
                 /*! \brief Get age of a given timestamp in seconds. */
-                static long getAgeInSecs(unsigned long long timestamp);
+                static unsigned long long getAgeInSecs(unsigned long long timestamp);
 
-                /*! \brief Get the UNIX timestamp of something with a given age. */
+                /*! \brief Get the UNIX timestamp of something with a given age.
+                 *
+                 * @param age Age in seconds.
+                 * @return UNIX timestamp in milliseconds.
+                 */
                 static unsigned long long getMaxTimestampForAge(double age);
 
                 /*! \brief Remove the points of a PointCloud from another. */

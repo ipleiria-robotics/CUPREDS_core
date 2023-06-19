@@ -10,6 +10,6 @@ if(NOT TARGET pcl_aggregator_core)
     find_package(Eigen3 REQUIRED)
     find_package(CUDA REQUIRED)
 
-    target_include_directories(pcl_aggregator_core INTERFACE /usr/include/pcl_aggregator_core)
+    target_include_directories(pcl_aggregator_core INTERFACE /usr/include/pcl_aggregator_core ${CUDA_INCLUDE_DIRS})
     target_link_libraries(pcl_aggregator_core INTERFACE ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${Eigen3_LIBRARIES} ${CUDA_LIBRARIES})
 endif()

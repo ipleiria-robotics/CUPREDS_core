@@ -12,7 +12,9 @@
 #include <thread>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
 #include <pcl_aggregator_core/managers/StreamManager.h>
+#include <pcl_aggregator_core/entities/StampedPointCloud.h>
 
 #define GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE 1
 #define GLOBAL_ICP_MAX_ITERATIONS 10
@@ -37,7 +39,7 @@ namespace pcl_aggregator {
                 /*! \brief Hash map of managers, one for each sensor (topic). */
                 std::unordered_map<std::string,std::unique_ptr<StreamManager>> streamManagers;
                 /*! \brief Smart pointer to the merged PointCloud. */
-                pcl::PointCloud<pcl::PointXYZRGBL>::Ptr mergedCloud;
+                entities::StampedPointCloud mergedCloud;
 
                 /*! \brief Mutex which manages concurrent access to the managers hash map. */
                 std::mutex managersMutex;
@@ -55,7 +57,7 @@ namespace pcl_aggregator {
                  * @param input The shared pointer to the input PointCloud.
                  * @return Flag denoting if ICP was possible or not.
                  */
-                bool appendToMerged(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& input);
+                bool appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL>& input);
 
                 /*! \brief Clear the points of the merged PointCloud. */
                 void clearMergedCloud();
@@ -66,6 +68,20 @@ namespace pcl_aggregator {
                  * @param maxAge The point's maximum age for this sensor.
                  */
                 void initStreamManager(const std::string& topicName, double maxAge);
+
+                /*! \brief Remove points with a given label from the merged PointCloud.
+                 * Used typically when points age, as a callback from the StreamManagers.
+                 *
+                 * @param label The label to remove.
+                 */
+                void removePointsByLabel(const std::set<std::uint32_t>& labels);
+
+                /*! \brief Add the processed PointCloud of a given stream to the merged.
+                 * Used typically when the Stream finishes processing a new PointCloud.
+                 *
+                 * @param cloud The PointCloud to add.
+                 */
+                void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>& cloud);
 
             public:
                 PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory);
@@ -79,7 +95,7 @@ namespace pcl_aggregator {
                  * @param cloud Smart pointer to the new pointcloud.
                  * @param topicName The name of the topic from which the pointcloud came from. Will be used for identification.
                  */
-                void addCloud(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const std::string& topicName);
+                void addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, const std::string& topicName);
 
                 /*! \brief Set the transform of a given sensor, identified by the topic name, to the robot base frame.
                  *
