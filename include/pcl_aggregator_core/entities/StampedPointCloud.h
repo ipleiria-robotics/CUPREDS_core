@@ -98,7 +98,7 @@ namespace pcl_aggregator {
                  *
                  * @param labels The labels to remove.
                  */
-                void removePointsWithLabels(std::set<std::uint32_t> labels);
+                void removePointsWithLabels(const std::set<std::uint32_t>& labels);
 
         };
 

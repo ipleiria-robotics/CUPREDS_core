@@ -110,8 +110,6 @@ namespace pcl_aggregator {
 
         void StreamManager::removePointCloud(std::uint32_t label) {
 
-            // ensure the pointer is moved to this method to delete its instance
-
             this->cloudMutex.lock();
             // remove points with that label from the merged pointcloud
             this->cloud->removePointsWithLabel(label);
@@ -122,11 +120,35 @@ namespace pcl_aggregator {
             std::lock_guard<std::mutex> guard(this->setMutex);
 
             // iterate the set
-            for(const auto& c : this->clouds) {
+            for(auto c : this->clouds) {
                 if(c->getLabel() == label) {
                     // remove the pointcloud from the set
                     this->clouds.erase(c);
+                    c.reset();
                     break;
+                }
+            }
+
+        }
+
+        void StreamManager::removePointClouds(std::set<std::uint32_t> labels) {
+
+            this->cloudMutex.lock();
+            // remove points with that label from the merged pointcloud
+            this->cloud->removePointsWithLabels(labels);
+            this->cloudMutex.unlock();
+
+
+            // lock the set
+            std::lock_guard<std::mutex> guard(this->setMutex);
+
+            // iterate the set
+            for(auto c : this->clouds) {
+                if(labels.find(c->getLabel()) != labels.end()) {
+                    // remove the pointcloud from the set
+                    this->clouds.erase(c);
+                    // free the pointcloud pointer
+                    c.reset();
                 }
             }
 
@@ -300,11 +322,6 @@ namespace pcl_aggregator {
         void StreamManager::setPointCloudReadyCallback(
                 const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL> &)> &func) {
             this->pointCloudReadyCallback = func;
-        }
-
-        void StreamManager::removePointClouds(std::set<std::uint32_t> labels) {
-            for(auto& label : labels)
-                this->removePointCloud(label);
         }
 
 
