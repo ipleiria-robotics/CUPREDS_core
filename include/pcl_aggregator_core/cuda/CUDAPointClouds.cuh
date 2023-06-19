@@ -33,7 +33,7 @@ namespace pcl_aggregator {
              * @param cloud2 The PointCloud which gives the points.
              */
             __host__ void concatenatePointCloudsCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud1,
-                                                     const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud2);
+                                                     const pcl::PointCloud<pcl::PointXYZRGBL>& cloud2);
 
             /*! \brief The kernel which sets the label on an individual point.
              *

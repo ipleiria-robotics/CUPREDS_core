@@ -145,7 +145,7 @@ namespace pcl_aggregator {
             }
 
             __host__ void concatenatePointCloudsCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud1,
-                                                     const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud2) {
+                                                     const pcl::PointCloud<pcl::PointXYZRGBL>& cloud2) {
 
                 cudaError_t err = cudaSuccess;
                 cudaStream_t stream;
@@ -158,7 +158,7 @@ namespace pcl_aggregator {
 
                 // resize the cloud1
                 std::size_t cloud1OriginalSize = cloud1->size();
-                cloud1->resize(cloud1OriginalSize + cloud2->size());
+                cloud1->resize(cloud1OriginalSize + cloud2.size());
 
                 // allocate cloud1 on the device - allocate with sufficient space to the concatenation
                 pcl::PointXYZRGBL *d_cloud1;
@@ -177,13 +177,13 @@ namespace pcl_aggregator {
 
                 // allocate cloud2 on the device
                 pcl::PointXYZRGBL *d_cloud2;
-                if((err = cudaMalloc(&d_cloud2, cloud2->size() * sizeof(pcl::PointXYZRGBL))) != cudaSuccess) {
+                if((err = cudaMalloc(&d_cloud2, cloud2.size() * sizeof(pcl::PointXYZRGBL))) != cudaSuccess) {
                     std::cerr << "Error allocating memory for cloud2: " << cudaGetErrorString(err) << std::endl;
                     return;
                 }
 
                 // copy cloud2 to the device
-                if((err = cudaMemcpy(d_cloud2, cloud2->points.data(), cloud2->size() * sizeof(pcl::PointXYZRGBL),
+                if((err = cudaMemcpy(d_cloud2, cloud2.points.data(), cloud2.size() * sizeof(pcl::PointXYZRGBL),
                                      cudaMemcpyHostToDevice)) != cudaSuccess) {
                     std::cerr << "Error copying cloud2 to the device: " << cudaGetErrorString(err) << std::endl;
                     return;
@@ -192,10 +192,10 @@ namespace pcl_aggregator {
                 // call the kernel
                 dim3 block(512);
                 // will be needed as much thread as the size of the cloud2, ideally
-                dim3 grid((cloud2->size() + block.x - 1) / block.x);
+                dim3 grid((cloud2.size() + block.x - 1) / block.x);
                 concatenatePointCloudsKernel<<<grid, block, 0, stream>>>(d_cloud1,
                                                                          cloud1OriginalSize, d_cloud2,
-                                                                         cloud2->size());
+                                                                         cloud2.size());
 
                 // wait for the stream to synchronize the threads
                 if ((err = cudaStreamSynchronize(stream)) != cudaSuccess) {
