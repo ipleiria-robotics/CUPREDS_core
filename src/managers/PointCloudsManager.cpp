@@ -144,11 +144,11 @@ namespace pcl_aggregator {
 
                     return icp.hasConverged(); // return true if alignment was possible */
 
-                    *(this->mergedCloud.getPointCloud()) += input;
+                    cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), input);
                     return false;
 
                 } else {
-                    *(this->mergedCloud.getPointCloud()) = input;
+                    cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), input);
                 }
 
             }
