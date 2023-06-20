@@ -12,12 +12,15 @@
 #include <thread>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/filters/voxel_grid.h>
 #include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
 #include <pcl_aggregator_core/managers/StreamManager.h>
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 
 #define GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE 1
-#define GLOBAL_ICP_MAX_ITERATIONS 10
+#define GLOBAL_ICP_MAX_ITERATIONS 5
+
+#define VOXEL_LEAF_SIZE 0.2f
 
 namespace pcl_aggregator {
     namespace managers {
@@ -57,10 +60,13 @@ namespace pcl_aggregator {
                  * @param input The shared pointer to the input PointCloud.
                  * @return Flag denoting if ICP was possible or not.
                  */
-                bool appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL>& input);
+                bool appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& input);
 
                 /*! \brief Clear the points of the merged PointCloud. */
                 void clearMergedCloud();
+
+                /*! \brief Downsample the merged PointCloud using a Voxel Filter. */
+                void downsampleMergedCloud();
 
                 /*! \brief Initialize the stream manager for a given topic with a given max age.
                  *
@@ -81,7 +87,7 @@ namespace pcl_aggregator {
                  *
                  * @param cloud The PointCloud to add.
                  */
-                void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>& cloud);
+                void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud);
 
             public:
                 PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory);

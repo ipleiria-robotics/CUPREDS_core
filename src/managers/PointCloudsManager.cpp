@@ -10,26 +10,25 @@ namespace pcl_aggregator {
         void memoryMonitoringRoutine(PointCloudsManager *instance) {
 
             while(instance->keepThreadAlive) {
-                // lock access to the pointcloud
-                instance->cloudMutex.lock();
+                {
+                    std::lock_guard<std::mutex> lock(instance->cloudMutex);
 
-                // get size in MB
-                size_t cloudSize = instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
+                    // get size in MB
+                    size_t cloudSize = instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
 
-                // how many points need to be removed to match the maximum size or less?
-                ssize_t pointsToRemove = ceil(
-                        (float) (cloudSize - instance->maxMemory) * 1e6 / sizeof(pcl::PointXYZRGBL));
+                    // how many points need to be removed to match the maximum size or less?
+                    ssize_t pointsToRemove = ceil(
+                            (float) (cloudSize - instance->maxMemory) * 1e6 / sizeof(pcl::PointXYZRGBL));
 
-                if (pointsToRemove > 0) {
+                    if (pointsToRemove > 0) {
 
-                    std::cerr << "Exceeded the memory limit: " << pointsToRemove << " points will be removed!" << std::endl;
+                        std::cerr << "Exceeded the memory limit: " << pointsToRemove << " points will be removed!" << std::endl;
 
-                    // remove the points needed if the number of points exceed the maximum
-                    for (size_t i = 0; i < pointsToRemove; i++)
-                        instance->mergedCloud.getPointCloud()->points.pop_back();
+                        // remove the points needed if the number of points exceed the maximum
+                        for (size_t i = 0; i < pointsToRemove; i++)
+                            instance->mergedCloud.getPointCloud()->points.pop_back();
+                    }
                 }
-
-                instance->cloudMutex.unlock();
 
                 // run the thread routine each second
                 std::this_thread::sleep_for(std::chrono::milliseconds (500));
@@ -114,58 +113,69 @@ namespace pcl_aggregator {
             }
             this->managersMutex.unlock();*/
 
-            // this->downsampleMergedCloud();
+            std::cout << "Getting merged cloud..." << std::endl;
 
             // TODO: this mutex isn't being released
             std::lock_guard<std::mutex> lock(this->cloudMutex);
+            std::cout << "Got merged cloud..." << std::endl;
             return *(this->mergedCloud.getPointCloud());
         }
 
-        bool PointCloudsManager::appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL>& input) {
+        bool PointCloudsManager::appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& input) {
 
             // TODO: there's a race condition involving "input". "input" changes during execution.
             bool couldAlign = false;
 
-            /* lock access to the pointcloud mutex by other threads.
-             * will only be released after appending the input pointcloud. */
-            this->cloudMutex.lock();
-
             // align the pointclouds
-            if(!input.empty()) {
-                if(!this->mergedCloud.getPointCloud()->empty()) {
-                    /*
-                    // create an ICP instance
-                    pcl::IterativeClosestPoint<pcl::PointXYZRGBL, pcl::PointXYZRGBL> icp;
-                    icp.setInputSource(input);
-                    icp.setInputTarget(this->mergedCloud); // "input" will align to "merged"
+            if (!input->empty()) {
 
-                    icp.setMaxCorrespondenceDistance(GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE);
-                    icp.setMaximumIterations(GLOBAL_ICP_MAX_ITERATIONS);
+                {
+                    /* lock access to the pointcloud mutex by other threads.
+                    * will only be released after appending the input pointcloud. */
+                    std::lock_guard<std::mutex> lock(this->cloudMutex);
 
-                    icp.align(*this->mergedCloud); // combine the aligned pointclouds on the "merged" instance
+                    if (!this->mergedCloud.getPointCloud()->empty()) {
 
-                    if (!icp.hasConverged())
-                        *this->mergedCloud += *input; // if alignment was not possible, just add the pointclouds
+                        /*
+                        // create an ICP instance
+                        pcl::IterativeClosestPoint<pcl::PointXYZRGBL, pcl::PointXYZRGBL> icp;
+                        icp.setInputSource(input);
+                        icp.setInputTarget(this->mergedCloud.getPointCloud()); // "input" will align to "merged"
 
-                    return icp.hasConverged(); // return true if alignment was possible */
+                        icp.setMaxCorrespondenceDistance(GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE);
+                        icp.setMaximumIterations(GLOBAL_ICP_MAX_ITERATIONS);
 
-                    if(cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), input) < 0) {
-                        std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!" << std::endl;
-                    }
-                    couldAlign = false;
+                        icp.align(
+                                *this->mergedCloud.getPointCloud()); // combine the aligned pointclouds on the "merged" instance
 
-                } else {
-                    if(cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), input) < 0) {
-                        std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!" << std::endl;
+                        couldAlign = icp.hasConverged(); // return true if alignment was possible
+
+                        if (!couldAlign) {
+                            if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(),
+                                                                              *input) <
+                                0) {
+                                std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
+                                          << std::endl;
+                            }
+                        }*/
+
+                        if(cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), *input) < 0) {
+                            std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!" << std::endl;
+                        }
+                        couldAlign = false;
+
+                    } else {
+                        if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), *input) <
+                            0) {
+                            std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
+                                      << std::endl;
+                        }
                     }
                 }
-
             }
 
-            this->cloudMutex.unlock();
-
             // the points are no longer needed
-            input.clear();
+            input->clear();
 
             return couldAlign;
         }
@@ -176,9 +186,10 @@ namespace pcl_aggregator {
             this->mergedCloud.removePointsWithLabels(labels);
         }
 
-        void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>& cloud) {
+        void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud) {
 
             this->appendToMerged(cloud);
+            this->downsampleMergedCloud();
         }
 
         void PointCloudsManager::initStreamManager(const std::string &topicName, double maxAge) {
@@ -202,9 +213,19 @@ namespace pcl_aggregator {
 
         void PointCloudsManager::clearMergedCloud() {
 
-            this->cloudMutex.lock();
+            std::lock_guard<std::mutex> lock(this->cloudMutex);
+
             this->mergedCloud.getPointCloud()->clear();
-            this->cloudMutex.unlock();
+        }
+
+        void PointCloudsManager::downsampleMergedCloud() {
+
+            std::lock_guard<std::mutex> lock(this->cloudMutex);
+
+            pcl::VoxelGrid<pcl::PointXYZRGBL> voxelGrid;
+            voxelGrid.setInputCloud(this->mergedCloud.getPointCloud());
+            voxelGrid.setLeafSize(VOXEL_LEAF_SIZE, VOXEL_LEAF_SIZE, VOXEL_LEAF_SIZE);
+            voxelGrid.filter(*this->mergedCloud.getPointCloud());
         }
 
     } // pcl_aggregator
