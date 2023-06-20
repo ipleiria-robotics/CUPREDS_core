@@ -96,9 +96,6 @@ namespace pcl_aggregator {
              */
 
             // iterate the map
-            /* TODO: review performance of only perform merging on demand
-             * vs merging the pointclouds and removing as needed every time
-            */
             /*
             this->managersMutex.lock();
             for(auto & streamManager : this->streamManagers) {
@@ -113,14 +110,12 @@ namespace pcl_aggregator {
             }
             this->managersMutex.unlock();*/
 
-            // TODO: this mutex isn't being released
             std::lock_guard<std::mutex> lock(this->cloudMutex);
             return *(this->mergedCloud.getPointCloud());
         }
 
         bool PointCloudsManager::appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& input) {
 
-            // TODO: there's a race condition involving "input". "input" changes during execution.
             bool couldAlign = false;
 
             // align the pointclouds
