@@ -279,7 +279,7 @@ namespace pcl_aggregator {
                 }
 
             } catch (std::exception &e) {
-                std::cout << "Error performing sensor-wise ICP: " << e.what() << std::endl;
+                std::cerr << "Error performing sensor-wise ICP: " << e.what() << std::endl;
             }
 
         }

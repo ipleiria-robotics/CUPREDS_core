@@ -113,11 +113,8 @@ namespace pcl_aggregator {
             }
             this->managersMutex.unlock();*/
 
-            std::cout << "Getting merged cloud..." << std::endl;
-
             // TODO: this mutex isn't being released
             std::lock_guard<std::mutex> lock(this->cloudMutex);
-            std::cout << "Got merged cloud..." << std::endl;
             return *(this->mergedCloud.getPointCloud());
         }
 
@@ -136,7 +133,7 @@ namespace pcl_aggregator {
 
                     if (!this->mergedCloud.getPointCloud()->empty()) {
 
-                        /*
+
                         // create an ICP instance
                         pcl::IterativeClosestPoint<pcl::PointXYZRGBL, pcl::PointXYZRGBL> icp;
                         icp.setInputSource(input);
@@ -157,11 +154,12 @@ namespace pcl_aggregator {
                                 std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
                                           << std::endl;
                             }
-                        }*/
+                        }
 
+                        /*
                         if(cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), *input) < 0) {
                             std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!" << std::endl;
-                        }
+                        }*/
                         couldAlign = false;
 
                     } else {
