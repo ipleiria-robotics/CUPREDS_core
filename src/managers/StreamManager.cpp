@@ -251,6 +251,9 @@ namespace pcl_aggregator {
                                 std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
                             }
                         }
+
+                        // downsample the new merged pointcloud
+                        this->cloud->downsample(STREAM_DOWNSAMPLING_LEAF_SIZE);
                     }
 
                     // the points are no longer needed

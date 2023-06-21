@@ -22,6 +22,8 @@
 #define STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE 1
 #define STREAM_ICP_MAX_ITERATIONS 10
 
+#define STREAM_DOWNSAMPLING_LEAF_SIZE 0.1f
+
 namespace pcl_aggregator {
     namespace managers {
 
