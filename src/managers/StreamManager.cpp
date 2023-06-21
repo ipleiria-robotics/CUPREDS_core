@@ -217,35 +217,39 @@ namespace pcl_aggregator {
 
             try {
                 if(!spcl->getPointCloud()->empty()) {
-                    std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
 
-                    if(!this->cloud->getPointCloud()->empty()) {
+                    {
+                        std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
 
-                        /*
-                        pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
+                        if (!this->cloud->getPointCloud()->empty()) {
 
-                        icp.setInputSource(spcl->getPointCloud());
-                        icp.setInputTarget(this->cloud->getPointCloud());
+                            /*
+                            pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
-                        icp.setMaxCorrespondenceDistance(STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE);
-                        icp.setMaximumIterations(STREAM_ICP_MAX_ITERATIONS);
+                            icp.setInputSource(spcl->getPointCloud());
+                            icp.setInputTarget(this->cloud->getPointCloud());
 
-                        icp.align(*this->cloud->getPointCloud());
+                            icp.setMaxCorrespondenceDistance(STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE);
+                            icp.setMaximumIterations(STREAM_ICP_MAX_ITERATIONS);
 
-                        if (!icp.hasConverged()) {
-                            *this->cloud->getPointCloud() += *spcl->getPointCloud(); // if alignment was not possible, just add the pointclouds
-                        }
+                            icp.align(*this->cloud->getPointCloud());
 
-                        */
+                            if (!icp.hasConverged()) {
+                                *this->cloud->getPointCloud() += *spcl->getPointCloud(); // if alignment was not possible, just add the pointclouds
+                            }
 
-                        if(cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud())) < 0) {
-                            std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
-                        }
+                            */
 
-                    } else {
-                        std::lock_guard<std::mutex> cloudGuard1(this->cloudMutex);
-                        if(cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud())) < 0) {
-                            std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
+                            if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
+                                                                              *(spcl->getPointCloud())) < 0) {
+                                std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
+                            }
+
+                        } else {
+                            if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
+                                                                              *(spcl->getPointCloud())) < 0) {
+                                std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
+                            }
                         }
                     }
 
@@ -254,7 +258,7 @@ namespace pcl_aggregator {
 
                     if(this->pointCloudReadyCallback != nullptr) {
 
-                        std::lock_guard<std::mutex> cloudGuard2(this->cloudMutex);
+                        std::lock_guard<std::mutex> cloudGuard1(this->cloudMutex);
 
                         /*
                         // call the callback on a new thread
