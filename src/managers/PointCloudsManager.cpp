@@ -10,28 +10,39 @@ namespace pcl_aggregator {
         void memoryMonitoringRoutine(PointCloudsManager *instance) {
 
             while(instance->keepThreadAlive) {
+
+                ssize_t pointsToRemove = 0;
+
                 {
-                    std::lock_guard<std::mutex> lock(instance->cloudMutex);
+                    std::lock_guard <std::mutex> lock(instance->cloudMutex);
 
                     // get size in MB
-                    size_t cloudSize = instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
+                    size_t cloudSize =
+                            instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
 
                     // how many points need to be removed to match the maximum size or less?
-                    ssize_t pointsToRemove = ceil(
+                    pointsToRemove = ceil(
                             (float) (cloudSize - instance->maxMemory) * 1e6 / sizeof(pcl::PointXYZRGBL));
+                }
 
-                    if (pointsToRemove > 0) {
+                if (pointsToRemove > 0) {
 
-                        std::cerr << "Exceeded the memory limit: " << pointsToRemove << " points will be removed!" << std::endl;
+                    std::cerr << "Exceeded the memory limit: " << pointsToRemove << " points will be removed!" << std::endl;
 
+                    auto pointRemoveRoutine = [instance](ssize_t pointsToRemove) {
+                        std::lock_guard<std::mutex> lock(instance->cloudMutex);
                         // remove the points needed if the number of points exceed the maximum
                         for (size_t i = 0; i < pointsToRemove; i++)
                             instance->mergedCloud.getPointCloud()->points.pop_back();
-                    }
+                    };
+
+                    // start a thread to remove the points and detach it
+                    std::thread removePointCount(pointRemoveRoutine, pointsToRemove);
+                    removePointCount.detach();
                 }
 
-                // run the thread routine each second
-                std::this_thread::sleep_for(std::chrono::milliseconds (500));
+                // this thread is repeating at a slow rate to prevent locking too much the mutex
+                std::this_thread::sleep_for(std::chrono::seconds(5));
             }
         }
 
