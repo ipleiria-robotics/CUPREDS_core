@@ -64,7 +64,8 @@ namespace pcl_aggregator {
         }
 
         void StampedPointCloud::setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr c, bool assignGeneratedLabel) {
-            this->cloudMutex.lock();
+
+            std::lock_guard<std::mutex> lock(cloudMutex);
 
             // free the old pointcloud
             this->cloud.reset();
@@ -78,8 +79,6 @@ namespace pcl_aggregator {
             } else {
                 std::cerr << "StampedPointCloud::setPointCloud: cloud is null!" << std::endl;
             }
-
-            this->cloudMutex.unlock();
         }
 
         void StampedPointCloud::assignLabelToPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label) {
@@ -101,7 +100,7 @@ namespace pcl_aggregator {
 
         void StampedPointCloud::applyTransform(const Eigen::Affine3d& tf) {
 
-            this->cloudMutex.lock();
+            std::lock_guard<std::mutex> lock(cloudMutex);
 
             if(this->cloud != nullptr) {
 
@@ -110,8 +109,6 @@ namespace pcl_aggregator {
             } else {
                 std::cerr << "StampedPointCloud::applyTransform: cloud is null!" << std::endl;
             }
-
-            this->cloudMutex.unlock();
 
             // pcl::transformPointCloud(*this->cloud, *this->cloud, tf);
             this->transformComputed = true;
@@ -132,7 +129,7 @@ namespace pcl_aggregator {
 
         void StampedPointCloud::removePointsWithLabel(std::uint32_t label) {
 
-            this->cloudMutex.lock();
+            std::lock_guard<std::mutex> lock(this->cloudMutex);
 
             auto it = this->cloud->begin();
             while (it != this->cloud->end()) {
@@ -141,13 +138,11 @@ namespace pcl_aggregator {
                 else
                     ++it;
             }
-
-            this->cloudMutex.unlock();
         }
 
         void StampedPointCloud::removePointsWithLabels(const std::set<std::uint32_t>& labels) {
 
-            this->cloudMutex.lock();
+            std::lock_guard<std::mutex> lock(this->cloudMutex);
 
             auto it = this->cloud->begin();
             while (it != this->cloud->end()) {
@@ -157,8 +152,16 @@ namespace pcl_aggregator {
                 else
                     ++it;
             }
+        }
 
-            this->cloudMutex.unlock();
+        void StampedPointCloud::downsample(float leafSize) {
+
+            std::lock_guard<std::mutex> lock(this->cloudMutex);
+
+            pcl::VoxelGrid<pcl::PointXYZRGBL> voxelGrid;
+            voxelGrid.setInputCloud(this->cloud);
+            voxelGrid.setLeafSize(leafSize, leafSize, leafSize);
+            voxelGrid.filter(*this->cloud);
         }
     } // pcl_aggregator
 } // entities

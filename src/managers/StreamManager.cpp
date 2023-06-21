@@ -19,29 +19,28 @@ namespace pcl_aggregator {
 
             while(instance->keepAgeWatcherAlive) {
 
-                // lock access to the pointcloud set
-                instance->setMutex.lock();
+                {
+                    // lock access to the pointcloud set
+                    std::lock_guard<std::mutex> lock(instance->setMutex);
 
-                for(auto& iter : instance->clouds) {
+                    for (auto &iter: instance->clouds) {
 
-                    /* the set is ordered by ascending timestamp.
-                     * When we find the first pointcloud which is not older than the max age, we can stop. */
+                        /* the set is ordered by ascending timestamp.
+                         * When we find the first pointcloud which is not older than the max age, we can stop. */
 
-                    // this pointcloud is older than the max age
-                    if(iter->getTimestamp() <= utils::Utils::getMaxTimestampForAge(instance->maxAge)) {
+                        // this pointcloud is older than the max age
+                        if (iter->getTimestamp() <= utils::Utils::getMaxTimestampForAge(instance->maxAge)) {
 
-                        // add the label to the set to remove
-                        labelsToRemove.insert(iter->getLabel());
-                    } else {
-                        // the set is ordered by ascending timestamp, so we can stop here
-                        break;
+                            // add the label to the set to remove
+                            labelsToRemove.insert(iter->getLabel());
+                        } else {
+                            // the set is ordered by ascending timestamp, so we can stop here
+                            break;
+                        }
+
+                        // TODO: review what happens to the pointer, potential memory leak here
                     }
-
-                    // TODO: review what happens to the pointer, potential memory leak here
                 }
-
-                // unlock access to the set
-                instance->setMutex.unlock();
 
 
                 // start a detached thread to the pointclouds
@@ -118,10 +117,12 @@ namespace pcl_aggregator {
 
         void StreamManager::removePointCloud(std::uint32_t label) {
 
-            this->cloudMutex.lock();
-            // remove points with that label from the merged pointcloud
-            this->cloud->removePointsWithLabel(label);
-            this->cloudMutex.unlock();
+            {
+                std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
+
+                // remove points with that label from the merged pointcloud
+                this->cloud->removePointsWithLabel(label);
+            }
 
 
             // lock the set
@@ -141,10 +142,12 @@ namespace pcl_aggregator {
 
         void StreamManager::removePointClouds(std::set<std::uint32_t> labels) {
 
-            this->cloudMutex.lock();
-            // remove points with that label from the merged pointcloud
-            this->cloud->removePointsWithLabels(labels);
-            this->cloudMutex.unlock();
+            {
+                std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
+
+                // remove points with that label from the merged pointcloud
+                this->cloud->removePointsWithLabels(labels);
+            }
 
 
             // lock the set
@@ -214,40 +217,51 @@ namespace pcl_aggregator {
 
             try {
                 if(!spcl->getPointCloud()->empty()) {
-                    this->cloudMutex.lock();
-                    if(!this->cloud->getPointCloud()->empty()) {
 
-                        /*
-                        pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
+                    {
+                        std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
 
-                        icp.setInputSource(spcl->getPointCloud());
-                        icp.setInputTarget(this->cloud->getPointCloud());
+                        if (!this->cloud->getPointCloud()->empty()) {
 
-                        icp.setMaxCorrespondenceDistance(STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE);
-                        icp.setMaximumIterations(STREAM_ICP_MAX_ITERATIONS);
+                            /*
+                            pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
-                        icp.align(*this->cloud->getPointCloud());
+                            icp.setInputSource(spcl->getPointCloud());
+                            icp.setInputTarget(this->cloud->getPointCloud());
 
-                        if (!icp.hasConverged()) {
-                            *this->cloud->getPointCloud() += *spcl->getPointCloud(); // if alignment was not possible, just add the pointclouds
+                            icp.setMaxCorrespondenceDistance(STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE);
+                            icp.setMaximumIterations(STREAM_ICP_MAX_ITERATIONS);
+
+                            icp.align(*this->cloud->getPointCloud());
+
+                            if (!icp.hasConverged()) {
+                                *this->cloud->getPointCloud() += *spcl->getPointCloud(); // if alignment was not possible, just add the pointclouds
+                            }
+
+                            */
+
+                            if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
+                                                                              *(spcl->getPointCloud())) < 0) {
+                                std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
+                            }
+
+                        } else {
+                            if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
+                                                                              *(spcl->getPointCloud())) < 0) {
+                                std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
+                            }
                         }
 
-                        */
-
-                        if(cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud())) < 0) {
-                            std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
-                        }
-
-                    } else {
-                        if(cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(), *(spcl->getPointCloud())) < 0) {
-                            std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
-                        }
+                        // downsample the new merged pointcloud
+                        this->cloud->downsample(STREAM_DOWNSAMPLING_LEAF_SIZE);
                     }
 
                     // the points are no longer needed
                     spcl->getPointCloud()->clear();
 
                     if(this->pointCloudReadyCallback != nullptr) {
+
+                        std::lock_guard<std::mutex> cloudGuard1(this->cloudMutex);
 
                         /*
                         // call the callback on a new thread
@@ -257,10 +271,8 @@ namespace pcl_aggregator {
                         pointCloudCallbackThread.detach();
                          */
 
-                        this->pointCloudReadyCallback(std::ref(*this->cloud->getPointCloud()));
+                        this->pointCloudReadyCallback(std::ref(this->cloud->getPointCloud()));
                     }
-
-                    this->cloudMutex.unlock();
 
                     /*
                     // start the pointcloud recycling thread
@@ -274,7 +286,7 @@ namespace pcl_aggregator {
                 }
 
             } catch (std::exception &e) {
-                std::cout << "Error performing sensor-wise ICP: " << e.what() << std::endl;
+                std::cerr << "Error performing sensor-wise ICP: " << e.what() << std::endl;
             }
 
         }
@@ -331,13 +343,13 @@ namespace pcl_aggregator {
             this->pointAgingCallback = func;
         }
 
-        std::function<void(pcl::PointCloud<pcl::PointXYZRGBL> &cloud)>
+        std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &cloud)>
         StreamManager::getPointCloudReadyCallback() const {
             return this->pointCloudReadyCallback;
         }
 
         void StreamManager::setPointCloudReadyCallback(
-                const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL> &)> &func) {
+                const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &)> &func) {
             this->pointCloudReadyCallback = func;
         }
 

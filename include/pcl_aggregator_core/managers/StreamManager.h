@@ -22,6 +22,8 @@
 #define STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE 1
 #define STREAM_ICP_MAX_ITERATIONS 10
 
+#define STREAM_DOWNSAMPLING_LEAF_SIZE 0.1f
+
 namespace pcl_aggregator {
     namespace managers {
 
@@ -72,7 +74,7 @@ namespace pcl_aggregator {
                 /*! \brief Callback function to call when the StreamManager has a new PointCloud ready.
                  * May be useful to add PointClouds to the
                  */
-                std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>& cloud)> pointCloudReadyCallback = nullptr;
+                std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud)> pointCloudReadyCallback = nullptr;
 
                 /*! \brief Compute the sensor transform. */
                 void computeTransform();
@@ -128,13 +130,13 @@ namespace pcl_aggregator {
                  *
                  * @return The defined callback.
                  */
-                std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>& cloud)> getPointCloudReadyCallback() const;
+                std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud)> getPointCloudReadyCallback() const;
 
                 /*! \brief Set the PointCloud ready callback.
                  *
                  * @param func The callback to set.
                  */
-                void setPointCloudReadyCallback(const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>& cloud)>& func);
+                void setPointCloudReadyCallback(const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud)>& func);
 
 
             /*!
