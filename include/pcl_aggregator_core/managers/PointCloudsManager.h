@@ -12,7 +12,6 @@
 #include <thread>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
 #include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
 #include <pcl_aggregator_core/managers/StreamManager.h>
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
@@ -64,9 +63,6 @@ namespace pcl_aggregator {
 
                 /*! \brief Clear the points of the merged PointCloud. */
                 void clearMergedCloud();
-
-                /*! \brief Downsample the merged PointCloud using a Voxel Filter. */
-                void downsampleMergedCloud();
 
                 /*! \brief Initialize the stream manager for a given topic with a given max age.
                  *

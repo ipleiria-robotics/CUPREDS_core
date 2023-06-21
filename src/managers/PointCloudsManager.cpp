@@ -129,6 +129,7 @@ namespace pcl_aggregator {
                     if (!this->mergedCloud.getPointCloud()->empty()) {
 
 
+                        /*
                         // create an ICP instance
                         pcl::IterativeClosestPoint<pcl::PointXYZRGBL, pcl::PointXYZRGBL> icp;
                         icp.setInputSource(input);
@@ -149,12 +150,11 @@ namespace pcl_aggregator {
                                 std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
                                           << std::endl;
                             }
-                        }
+                        }*/
 
-                        /*
                         if(cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), *input) < 0) {
                             std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!" << std::endl;
-                        }*/
+                        }
                         couldAlign = false;
 
                     } else {
@@ -182,7 +182,7 @@ namespace pcl_aggregator {
         void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud) {
 
             this->appendToMerged(cloud);
-            this->downsampleMergedCloud();
+            this->mergedCloud.downsample(VOXEL_LEAF_SIZE);
         }
 
         void PointCloudsManager::initStreamManager(const std::string &topicName, double maxAge) {
@@ -209,16 +209,6 @@ namespace pcl_aggregator {
             std::lock_guard<std::mutex> lock(this->cloudMutex);
 
             this->mergedCloud.getPointCloud()->clear();
-        }
-
-        void PointCloudsManager::downsampleMergedCloud() {
-
-            std::lock_guard<std::mutex> lock(this->cloudMutex);
-
-            pcl::VoxelGrid<pcl::PointXYZRGBL> voxelGrid;
-            voxelGrid.setInputCloud(this->mergedCloud.getPointCloud());
-            voxelGrid.setLeafSize(VOXEL_LEAF_SIZE, VOXEL_LEAF_SIZE, VOXEL_LEAF_SIZE);
-            voxelGrid.filter(*this->mergedCloud.getPointCloud());
         }
 
     } // pcl_aggregator
