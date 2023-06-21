@@ -151,14 +151,6 @@ namespace pcl_aggregator {
                                               const std::shared_ptr<entities::StampedPointCloud>& spcl,
                                               const Eigen::Affine3d& tf);
 
-
-            friend void pointCloudAutoRemoveRoutine(StreamManager* instance,
-                                                    std::shared_ptr<entities::StampedPointCloud> spcl);
-
-
-            friend void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud>& spcl,
-                                                      const Eigen::Matrix4f& tf);
-
             /*! \brief Max age watching routine.
              *
              * This routine is ran by a thread in background watching the age of the PointClouds

@@ -200,26 +200,14 @@ namespace pcl_aggregator {
                 applyTransformRoutine(this, spcl, tf);
             };
 
+            /*
             // pointcloud is passed as a const reference: ownership is not moved and no copy is made
             std::thread transformationThread(transformRoutine, std::ref(spcl), sensorTransform);
 
-            // start a thread to clear the pointclouds older than max age
-            // std::thread cleaningThread(clearPointCloudsRoutine, this);
+            // wait for the thread
+            transformationThread.join();*/
 
-            // wait for both threads to synchronize
-            transformationThread.join();
-            // cleaningThread.join();
-
-            // add the new pointcloud to the set
-            /*
-            int startingIndex = this->clouds.size();
-            this->clouds.insert(spcl);
-            int endingIndex = this->clouds.size();
-
-            // store the indices in the merged cloud
-            for(int i = startingIndex; i < endingIndex; i++) {
-                spcl->addMergedIndex(i);
-            }*/
+            transformRoutine(std::ref(spcl), sensorTransform);
 
             try {
                 if(!spcl->getPointCloud()->empty()) {
@@ -313,25 +301,6 @@ namespace pcl_aggregator {
                                    const std::shared_ptr<entities::StampedPointCloud>& spcl,
                                    const Eigen::Affine3d& tf) {
             spcl->applyTransform(tf);
-        }
-
-        // NO LONGER USED: now, a single watching thread is used instead, to reduce overhead
-        void pointCloudAutoRemoveRoutine(StreamManager* instance,
-                                                std::shared_ptr<entities::StampedPointCloud> spcl) {
-
-            spcl->getPointCloud().reset();
-
-            // sleep for the max age
-            std::this_thread::sleep_for(std::chrono::milliseconds(
-                    static_cast<long long>(instance->maxAge * 1000)));
-
-            // call the pointcloud removal method
-            instance->removePointCloud(spcl->getLabel());
-        }
-
-        void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud>& spcl,
-                                           const Eigen::Matrix4f& tf) {
-            spcl->applyIcpTransform(tf);
         }
 
         std::function<void(std::set<std::uint32_t> labels)> StreamManager::getPointAgingCallback() const {
