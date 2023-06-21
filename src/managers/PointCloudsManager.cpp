@@ -128,34 +128,31 @@ namespace pcl_aggregator {
 
                     if (!this->mergedCloud.getPointCloud()->empty()) {
 
-
-                        /*
                         // create an ICP instance
                         pcl::IterativeClosestPoint<pcl::PointXYZRGBL, pcl::PointXYZRGBL> icp;
-                        icp.setInputSource(input);
-                        icp.setInputTarget(this->mergedCloud.getPointCloud()); // "input" will align to "merged"
+                        icp.setInputSource(this->mergedCloud.getPointCloud());
+                        icp.setInputTarget(input);
 
                         icp.setMaxCorrespondenceDistance(GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE);
                         icp.setMaximumIterations(GLOBAL_ICP_MAX_ITERATIONS);
 
                         icp.align(
-                                *this->mergedCloud.getPointCloud()); // combine the aligned pointclouds on the "merged" instance
+                                *this->mergedCloud.getPointCloud(), Eigen::Matrix4f::Identity()); // combine the aligned pointclouds on the "merged" instance
+
+                        if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(),
+                                                                          *input) < 0) {
+                            std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
+                                      << std::endl;
+                        }
 
                         couldAlign = icp.hasConverged(); // return true if alignment was possible
 
-                        if (!couldAlign) {
-                            if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(),
-                                                                              *input) <
-                                0) {
-                                std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
-                                          << std::endl;
-                            }
-                        }*/
-
+                        /*
                         if(cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), *input) < 0) {
                             std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!" << std::endl;
                         }
                         couldAlign = false;
+                         */
 
                     } else {
                         if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), *input) <

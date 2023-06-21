@@ -223,22 +223,15 @@ namespace pcl_aggregator {
 
                         if (!this->cloud->getPointCloud()->empty()) {
 
-                            /*
                             pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
-                            icp.setInputSource(spcl->getPointCloud());
-                            icp.setInputTarget(this->cloud->getPointCloud());
+                            icp.setInputSource(this->cloud->getPointCloud());
+                            icp.setInputTarget(spcl->getPointCloud());
 
                             icp.setMaxCorrespondenceDistance(STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE);
                             icp.setMaximumIterations(STREAM_ICP_MAX_ITERATIONS);
 
                             icp.align(*this->cloud->getPointCloud());
-
-                            if (!icp.hasConverged()) {
-                                *this->cloud->getPointCloud() += *spcl->getPointCloud(); // if alignment was not possible, just add the pointclouds
-                            }
-
-                            */
 
                             if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
                                                                               *(spcl->getPointCloud())) < 0) {

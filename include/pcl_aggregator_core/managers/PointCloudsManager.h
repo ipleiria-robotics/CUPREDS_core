@@ -16,8 +16,8 @@
 #include <pcl_aggregator_core/managers/StreamManager.h>
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 
-#define GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE 1
-#define GLOBAL_ICP_MAX_ITERATIONS 5
+#define GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE 1.0f
+#define GLOBAL_ICP_MAX_ITERATIONS 3
 
 #define VOXEL_LEAF_SIZE 0.2f
 
