@@ -140,7 +140,7 @@ namespace pcl_aggregator {
             }
         }
 
-        void StampedPointCloud::removePointsWithLabels(const std::set<std::uint32_t>& labels) {
+        void StampedPointCloud::removePointsWithLabels(std::set<std::uint32_t> labels) {
 
             std::lock_guard<std::mutex> lock(this->cloudMutex);
 

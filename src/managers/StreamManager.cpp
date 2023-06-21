@@ -49,6 +49,7 @@ namespace pcl_aggregator {
                  * going for too long, keeping access to the set constantly locked
                  */
 
+                // remove the points from this merged PointCloud
                 std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine, labelsToRemove);
                 pthread_setname_np(pointCloudRemovalThread.native_handle(), "pointCloudRemovalThread");
                 pointCloudRemovalThread.detach();
@@ -57,9 +58,14 @@ namespace pcl_aggregator {
                 if(instance->pointAgingCallback != nullptr) {
                     // call a thread to run the callback
                     // if it was done in the same thread, it would delay the routine
+
+                    // remove the points from the PointCloudsManager's merged pointcloud
                     std::thread callbackThread = std::thread(instance->pointAgingCallback, labelsToRemove);
                     callbackThread.detach();
                 }
+
+                // clear the labels set
+                labelsToRemove.clear();
 
                 // sleep for a second before repeating
                 std::this_thread::sleep_for(std::chrono::seconds(1));
