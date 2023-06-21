@@ -153,5 +153,15 @@ namespace pcl_aggregator {
                     ++it;
             }
         }
+
+        void StampedPointCloud::downsample(float leafSize) {
+
+            std::lock_guard<std::mutex> lock(this->cloudMutex);
+
+            pcl::VoxelGrid<pcl::PointXYZRGBL> voxelGrid;
+            voxelGrid.setInputCloud(this->cloud);
+            voxelGrid.setLeafSize(leafSize, leafSize, leafSize);
+            voxelGrid.filter(*this->cloud);
+        }
     } // pcl_aggregator
 } // entities

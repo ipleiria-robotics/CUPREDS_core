@@ -7,6 +7,7 @@
 
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
+#include <pcl/filters/voxel_grid.h>
 #include <eigen3/Eigen/Dense>
 #include <cstdint>
 #include <set>
@@ -99,6 +100,12 @@ namespace pcl_aggregator {
                  * @param labels The labels to remove.
                  */
                 void removePointsWithLabels(const std::set<std::uint32_t>& labels);
+
+                /*! \brief Apply voxel grid filter to the PointCloud.
+                 *
+                 * @param leafSize
+                 */
+                void downsample(float leafSize);
 
         };
 
