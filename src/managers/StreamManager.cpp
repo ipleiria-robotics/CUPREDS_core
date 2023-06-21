@@ -213,6 +213,7 @@ namespace pcl_aggregator {
                 if(!spcl->getPointCloud()->empty()) {
 
                     {
+                        // TODO: this is one of the biggest bottlenecks. ICP locks the mutex for a lot of time
                         std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
 
                         if (!this->cloud->getPointCloud()->empty()) {
@@ -250,26 +251,12 @@ namespace pcl_aggregator {
 
                         std::lock_guard<std::mutex> cloudGuard1(this->cloudMutex);
 
-                        /*
                         // call the callback on a new thread
-                         // WARNING: calling this thread as-is causes a race condition because the pointcloud is changed
-                        std::thread pointCloudCallbackThread = std::thread(this->pointCloudReadyCallback,
-                                                                           std::ref(*this->cloud->getPointCloud()));
+                        std::thread pointCloudCallbackThread = std::thread([this]() {
+                            this->pointCloudReadyCallback(std::ref(this->cloud->getPointCloud()),std::ref(this->cloudMutex));
+                        });
                         pointCloudCallbackThread.detach();
-                         */
-
-                        this->pointCloudReadyCallback(std::ref(this->cloud->getPointCloud()));
                     }
-
-                    /*
-                    // start the pointcloud recycling thread
-                    auto autoRemoveRoutine = [this] (
-                                                 const std::shared_ptr<entities::StampedPointCloud>& spcl) {
-                        pointCloudAutoRemoveRoutine(this, spcl);
-                    };
-                    std::thread spclRecyclingThread(autoRemoveRoutine, spcl);
-                    // detach from the thread, this execution flow doesn't really care about it
-                    spclRecyclingThread.detach(); */
                 }
 
             } catch (std::exception &e) {
@@ -311,13 +298,13 @@ namespace pcl_aggregator {
             this->pointAgingCallback = func;
         }
 
-        std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &cloud)>
+        std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &cloud, std::mutex& cloudMutex)>
         StreamManager::getPointCloudReadyCallback() const {
             return this->pointCloudReadyCallback;
         }
 
         void StreamManager::setPointCloudReadyCallback(
-                const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &)> &func) {
+                const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &, std::mutex&)> &func) {
             this->pointCloudReadyCallback = func;
         }
 

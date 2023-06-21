@@ -187,9 +187,13 @@ namespace pcl_aggregator {
             this->mergedCloud.removePointsWithLabels(labels);
         }
 
-        void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud) {
+        void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud,
+                                                     std::mutex& streamCloudMutex) {
 
-            this->appendToMerged(cloud);
+            {
+                std::lock_guard<std::mutex> lock(streamCloudMutex);
+                this->appendToMerged(cloud);
+            }
             this->mergedCloud.downsample(VOXEL_LEAF_SIZE);
         }
 
@@ -207,7 +211,7 @@ namespace pcl_aggregator {
 
             // add a pointcloud whenever the StreamManager has one ready
             newStreamManager->setPointCloudReadyCallback(std::bind(&PointCloudsManager::addStreamPointCloud, this,
-                                                                   std::placeholders::_1));
+                                                                   std::placeholders::_1, std::placeholders::_2));
 
             this->streamManagers[topicName] = std::move(newStreamManager);
         }

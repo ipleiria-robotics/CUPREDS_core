@@ -83,7 +83,7 @@ namespace pcl_aggregator {
                  *
                  * @param cloud The PointCloud to add.
                  */
-                void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud);
+                void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::mutex& streamCloudMutex);
 
             public:
                 PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory);
