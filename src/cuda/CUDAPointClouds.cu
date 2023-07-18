@@ -261,7 +261,6 @@ namespace pcl_aggregator {
                     return;
 
                 // copy the point from cloud2 to cloud1
-                // TODO: some illegal memory access here
                 cloud1[cloud1_original_size+idx] = cloud2[idx];
             }
         }

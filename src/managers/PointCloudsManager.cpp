@@ -10,28 +10,39 @@ namespace pcl_aggregator {
         void memoryMonitoringRoutine(PointCloudsManager *instance) {
 
             while(instance->keepThreadAlive) {
+
+                ssize_t pointsToRemove = 0;
+
                 {
-                    std::lock_guard<std::mutex> lock(instance->cloudMutex);
+                    std::lock_guard <std::mutex> lock(instance->cloudMutex);
 
                     // get size in MB
-                    size_t cloudSize = instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
+                    size_t cloudSize =
+                            instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
 
                     // how many points need to be removed to match the maximum size or less?
-                    ssize_t pointsToRemove = ceil(
+                    pointsToRemove = ceil(
                             (float) (cloudSize - instance->maxMemory) * 1e6 / sizeof(pcl::PointXYZRGBL));
+                }
 
-                    if (pointsToRemove > 0) {
+                if (pointsToRemove > 0) {
 
-                        std::cerr << "Exceeded the memory limit: " << pointsToRemove << " points will be removed!" << std::endl;
+                    std::cerr << "Exceeded the memory limit: " << pointsToRemove << " points will be removed!" << std::endl;
 
+                    auto pointRemoveRoutine = [instance](ssize_t pointsToRemove) {
+                        std::lock_guard<std::mutex> lock(instance->cloudMutex);
                         // remove the points needed if the number of points exceed the maximum
                         for (size_t i = 0; i < pointsToRemove; i++)
                             instance->mergedCloud.getPointCloud()->points.pop_back();
-                    }
+                    };
+
+                    // start a thread to remove the points and detach it
+                    std::thread removePointCount(pointRemoveRoutine, pointsToRemove);
+                    removePointCount.detach();
                 }
 
-                // run the thread routine each second
-                std::this_thread::sleep_for(std::chrono::milliseconds (500));
+                // this thread is repeating at a slow rate to prevent locking too much the mutex
+                std::this_thread::sleep_for(std::chrono::seconds(5));
             }
         }
 
@@ -128,34 +139,31 @@ namespace pcl_aggregator {
 
                     if (!this->mergedCloud.getPointCloud()->empty()) {
 
-
-                        /*
                         // create an ICP instance
                         pcl::IterativeClosestPoint<pcl::PointXYZRGBL, pcl::PointXYZRGBL> icp;
-                        icp.setInputSource(input);
-                        icp.setInputTarget(this->mergedCloud.getPointCloud()); // "input" will align to "merged"
+                        icp.setInputSource(this->mergedCloud.getPointCloud());
+                        icp.setInputTarget(input);
 
                         icp.setMaxCorrespondenceDistance(GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE);
                         icp.setMaximumIterations(GLOBAL_ICP_MAX_ITERATIONS);
 
                         icp.align(
-                                *this->mergedCloud.getPointCloud()); // combine the aligned pointclouds on the "merged" instance
+                                *this->mergedCloud.getPointCloud(), Eigen::Matrix4f::Identity()); // combine the aligned pointclouds on the "merged" instance
+
+                        if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(),
+                                                                          *input) < 0) {
+                            std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
+                                      << std::endl;
+                        }
 
                         couldAlign = icp.hasConverged(); // return true if alignment was possible
 
-                        if (!couldAlign) {
-                            if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(),
-                                                                              *input) <
-                                0) {
-                                std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
-                                          << std::endl;
-                            }
-                        }*/
-
+                        /*
                         if(cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), *input) < 0) {
                             std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!" << std::endl;
                         }
                         couldAlign = false;
+                         */
 
                     } else {
                         if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), *input) <
@@ -179,9 +187,13 @@ namespace pcl_aggregator {
             this->mergedCloud.removePointsWithLabels(labels);
         }
 
-        void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud) {
+        void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud,
+                                                     std::mutex& streamCloudMutex) {
 
-            this->appendToMerged(cloud);
+            {
+                std::lock_guard<std::mutex> lock(streamCloudMutex);
+                this->appendToMerged(cloud);
+            }
             this->mergedCloud.downsample(VOXEL_LEAF_SIZE);
         }
 
@@ -199,7 +211,7 @@ namespace pcl_aggregator {
 
             // add a pointcloud whenever the StreamManager has one ready
             newStreamManager->setPointCloudReadyCallback(std::bind(&PointCloudsManager::addStreamPointCloud, this,
-                                                                   std::placeholders::_1));
+                                                                   std::placeholders::_1, std::placeholders::_2));
 
             this->streamManagers[topicName] = std::move(newStreamManager);
         }

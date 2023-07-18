@@ -49,6 +49,7 @@ namespace pcl_aggregator {
                  * going for too long, keeping access to the set constantly locked
                  */
 
+                // remove the points from this merged PointCloud
                 std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine, labelsToRemove);
                 pthread_setname_np(pointCloudRemovalThread.native_handle(), "pointCloudRemovalThread");
                 pointCloudRemovalThread.detach();
@@ -57,9 +58,14 @@ namespace pcl_aggregator {
                 if(instance->pointAgingCallback != nullptr) {
                     // call a thread to run the callback
                     // if it was done in the same thread, it would delay the routine
+
+                    // remove the points from the PointCloudsManager's merged pointcloud
                     std::thread callbackThread = std::thread(instance->pointAgingCallback, labelsToRemove);
                     callbackThread.detach();
                 }
+
+                // clear the labels set
+                labelsToRemove.clear();
 
                 // sleep for a second before repeating
                 std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -194,51 +200,33 @@ namespace pcl_aggregator {
                 applyTransformRoutine(this, spcl, tf);
             };
 
+            /*
             // pointcloud is passed as a const reference: ownership is not moved and no copy is made
             std::thread transformationThread(transformRoutine, std::ref(spcl), sensorTransform);
 
-            // start a thread to clear the pointclouds older than max age
-            // std::thread cleaningThread(clearPointCloudsRoutine, this);
+            // wait for the thread
+            transformationThread.join();*/
 
-            // wait for both threads to synchronize
-            transformationThread.join();
-            // cleaningThread.join();
-
-            // add the new pointcloud to the set
-            /*
-            int startingIndex = this->clouds.size();
-            this->clouds.insert(spcl);
-            int endingIndex = this->clouds.size();
-
-            // store the indices in the merged cloud
-            for(int i = startingIndex; i < endingIndex; i++) {
-                spcl->addMergedIndex(i);
-            }*/
+            transformRoutine(std::ref(spcl), sensorTransform);
 
             try {
                 if(!spcl->getPointCloud()->empty()) {
 
                     {
+                        // TODO: this is one of the biggest bottlenecks. ICP locks the mutex for a lot of time
                         std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
 
                         if (!this->cloud->getPointCloud()->empty()) {
 
-                            /*
                             pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
-                            icp.setInputSource(spcl->getPointCloud());
-                            icp.setInputTarget(this->cloud->getPointCloud());
+                            icp.setInputSource(this->cloud->getPointCloud());
+                            icp.setInputTarget(spcl->getPointCloud());
 
                             icp.setMaxCorrespondenceDistance(STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE);
                             icp.setMaximumIterations(STREAM_ICP_MAX_ITERATIONS);
 
                             icp.align(*this->cloud->getPointCloud());
-
-                            if (!icp.hasConverged()) {
-                                *this->cloud->getPointCloud() += *spcl->getPointCloud(); // if alignment was not possible, just add the pointclouds
-                            }
-
-                            */
 
                             if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
                                                                               *(spcl->getPointCloud())) < 0) {
@@ -263,26 +251,12 @@ namespace pcl_aggregator {
 
                         std::lock_guard<std::mutex> cloudGuard1(this->cloudMutex);
 
-                        /*
                         // call the callback on a new thread
-                         // WARNING: calling this thread as-is causes a race condition because the pointcloud is changed
-                        std::thread pointCloudCallbackThread = std::thread(this->pointCloudReadyCallback,
-                                                                           std::ref(*this->cloud->getPointCloud()));
+                        std::thread pointCloudCallbackThread = std::thread([this]() {
+                            this->pointCloudReadyCallback(std::ref(this->cloud->getPointCloud()),std::ref(this->cloudMutex));
+                        });
                         pointCloudCallbackThread.detach();
-                         */
-
-                        this->pointCloudReadyCallback(std::ref(this->cloud->getPointCloud()));
                     }
-
-                    /*
-                    // start the pointcloud recycling thread
-                    auto autoRemoveRoutine = [this] (
-                                                 const std::shared_ptr<entities::StampedPointCloud>& spcl) {
-                        pointCloudAutoRemoveRoutine(this, spcl);
-                    };
-                    std::thread spclRecyclingThread(autoRemoveRoutine, spcl);
-                    // detach from the thread, this execution flow doesn't really care about it
-                    spclRecyclingThread.detach(); */
                 }
 
             } catch (std::exception &e) {
@@ -316,25 +290,6 @@ namespace pcl_aggregator {
             spcl->applyTransform(tf);
         }
 
-        // NO LONGER USED: now, a single watching thread is used instead, to reduce overhead
-        void pointCloudAutoRemoveRoutine(StreamManager* instance,
-                                                std::shared_ptr<entities::StampedPointCloud> spcl) {
-
-            spcl->getPointCloud().reset();
-
-            // sleep for the max age
-            std::this_thread::sleep_for(std::chrono::milliseconds(
-                    static_cast<long long>(instance->maxAge * 1000)));
-
-            // call the pointcloud removal method
-            instance->removePointCloud(spcl->getLabel());
-        }
-
-        void icpTransformPointCloudRoutine(const std::shared_ptr<entities::StampedPointCloud>& spcl,
-                                           const Eigen::Matrix4f& tf) {
-            spcl->applyIcpTransform(tf);
-        }
-
         std::function<void(std::set<std::uint32_t> labels)> StreamManager::getPointAgingCallback() const {
             return this->pointAgingCallback;
         }
@@ -343,13 +298,13 @@ namespace pcl_aggregator {
             this->pointAgingCallback = func;
         }
 
-        std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &cloud)>
+        std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &cloud, std::mutex& cloudMutex)>
         StreamManager::getPointCloudReadyCallback() const {
             return this->pointCloudReadyCallback;
         }
 
         void StreamManager::setPointCloudReadyCallback(
-                const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &)> &func) {
+                const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &, std::mutex&)> &func) {
             this->pointCloudReadyCallback = func;
         }
 

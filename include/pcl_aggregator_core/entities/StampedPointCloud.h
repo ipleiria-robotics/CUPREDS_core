@@ -99,7 +99,7 @@ namespace pcl_aggregator {
                  *
                  * @param labels The labels to remove.
                  */
-                void removePointsWithLabels(const std::set<std::uint32_t>& labels);
+                void removePointsWithLabels(std::set<std::uint32_t> labels);
 
                 /*! \brief Apply voxel grid filter to the PointCloud.
                  *
