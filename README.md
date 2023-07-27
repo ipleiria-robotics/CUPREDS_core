@@ -1,3 +1,12 @@
+Student:<br>
+Carlos Tojal<sup>1,2</sup><br>
+
+Advisors:<br>
+Luís Conde Bento<sup>1,2</sup><br>
+
+<sup>1</sup> Polytechnic of Leiria, Leiria, Portugal;<br>
+<sup>2</sup> Institute of Systems and Robotics, Coimbra, Portugal 
+
 # CUPREDS – CUDA-Accelerated, Multi-threaded Point Cloud Registration from Heterogeneous Sensors with Efficient Data Structures
 
 The is the core library of CUPREDS. There is a ROS wrapper developed, available [here](https://github.com/ipleiria-robotics/CUPREDS_ros).
