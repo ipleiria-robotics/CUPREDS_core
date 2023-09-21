@@ -189,6 +189,9 @@ namespace pcl_aggregator::managers {
     void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud,
                                                  std::mutex& streamCloudMutex) {
 
+        // DEPRECATED
+        // TODO: create a thread to periodically register the merged pointcloud of each sensor
+
         {
             std::lock_guard<std::mutex> lock(streamCloudMutex);
             this->appendToMerged(cloud);

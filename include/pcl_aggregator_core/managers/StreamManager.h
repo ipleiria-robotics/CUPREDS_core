@@ -17,6 +17,7 @@
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 #include <pcl_aggregator_core/utils/Utils.h>
 #include <thread>
+#include <condition_variable>
 #include <functional>
 
 #define STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE 0.2f
@@ -50,6 +51,15 @@ namespace pcl_aggregator::managers {
             std::queue<std::shared_ptr<entities::StampedPointCloud>> cloudsNotTransformed;
             /*! \brief Maximum age points live for. After this time they will be removed. */
             double maxAge;
+
+            /*! \brief Is registration currently ongoing? Used as a condition. */
+            bool registrationOngoing = false;
+
+            /*! \brief Is the cloud being queried by the PointCloudsManager? Used as condition. */
+            bool cloudBeingQueried = false;
+
+            /*! \brief Merged cloud access condition variable. */
+            std::condition_variable cloudConditionVariable;
 
             /*! \brief Mutex to manage access to the clouds set. */
             std::mutex setMutex;
@@ -139,6 +149,15 @@ namespace pcl_aggregator::managers {
              */
             void setPointCloudReadyCallback(const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud,
                     std::mutex& cloudMutex)>& func);
+
+            /*! \brief Is registration ongoing? */
+            bool isRegistrationOngoing() const;
+
+            /*! \brief Set that the pointcloud is being queried or not. */
+            void setCloudBeingQueried(bool value);
+
+            /*! \brief Get the merged pointcloud condition variable. */
+            std::condition_variable* getCloudConditionVariable();
 
 
         /*!

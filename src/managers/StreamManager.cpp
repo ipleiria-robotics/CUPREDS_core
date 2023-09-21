@@ -214,7 +214,14 @@ namespace pcl_aggregator::managers {
 
                 {
                     // TODO: this is one of the biggest bottlenecks. ICP locks the mutex for a lot of time
-                    std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
+                    // lock the pointcloud mutex
+                    std::unique_lock<std::mutex> lock(this->cloudMutex);
+
+                    // wait for the pointcloud to stop being queried
+                    this->cloudConditionVariable.wait(lock, [this]{return !(this->cloudBeingQueried);});
+
+                    // set that the pointcloud is being registered
+                    this->registrationOngoing = true;
 
                     if (!this->cloud->getPointCloud()->empty()) {
 
@@ -242,11 +249,21 @@ namespace pcl_aggregator::managers {
 
                     // downsample the new merged pointcloud
                     this->cloud->downsample(STREAM_DOWNSAMPLING_LEAF_SIZE);
+
+                    // set the registration as finished
+                    this->registrationOngoing = false;
                 }
+
+                // notify the waiting threads after releasing the mutex
+                this->cloudConditionVariable.notify_one();
 
                 // the points are no longer needed
                 spcl->getPointCloud()->clear();
 
+                // TODO: use a condition variable to protect this pointcloud, which will notify waiting threads when registration is done
+
+                // TODO: the PointCloudsManager requests the pointcloud at a fixed rate
+                /*
                 if(this->pointCloudReadyCallback != nullptr) {
 
                     std::lock_guard<std::mutex> cloudGuard1(this->cloudMutex);
@@ -256,7 +273,7 @@ namespace pcl_aggregator::managers {
                         this->pointCloudReadyCallback(std::ref(this->cloud->getPointCloud()),std::ref(this->cloudMutex));
                     });
                     pointCloudCallbackThread.detach();
-                }
+                }*/
             }
 
         } catch (std::exception &e) {
@@ -306,6 +323,21 @@ namespace pcl_aggregator::managers {
     void StreamManager::setPointCloudReadyCallback(
             const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &, std::mutex&)> &func) {
         this->pointCloudReadyCallback = func;
+    }
+
+    bool StreamManager::isRegistrationOngoing() const {
+
+        return registrationOngoing;
+    }
+
+    void StreamManager::setCloudBeingQueried(bool value) {
+
+        this->cloudBeingQueried = value;
+    }
+
+    std::condition_variable* StreamManager::getCloudConditionVariable() {
+
+        return &(this->cloudConditionVariable);
     }
 
 
