@@ -17,7 +17,7 @@ namespace pcl_aggregator::managers {
 
                 // get size in MB
                 size_t cloudSize =
-                        instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / 1e6;
+                        instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / (size_t) 1e6;
 
                 // how many points need to be removed to match the maximum size or less?
                 pointsToRemove = ceil(
