@@ -189,6 +189,8 @@ namespace pcl_aggregator::managers {
         if(!this->sensorTransformSet) {
             // add the pointcloud to the queue
             // the ownership is moved to the queue
+            // lock access to the queue
+            std::lock_guard<std::mutex> lock(this->cloudQueueMutex);
             this->cloudsNotTransformed.push(std::move(spcl));
             return;
         }
@@ -217,11 +219,11 @@ namespace pcl_aggregator::managers {
                     // lock the pointcloud mutex
                     std::unique_lock<std::mutex> lock(this->cloudMutex);
 
-                    // wait for the pointcloud to stop being queried
-                    this->cloudConditionVariable.wait(lock, [this]{return !(this->cloudBeingQueried);});
+                    // wait for the pointcloud to stop being used by other thread
+                    this->cloudConditionVariable.wait(lock, [this]{return this->cloudReady;});
 
                     // set that the pointcloud is being registered
-                    this->registrationOngoing = true;
+                    this->cloudReady = false;
 
                     if (!this->cloud->getPointCloud()->empty()) {
 
@@ -251,16 +253,16 @@ namespace pcl_aggregator::managers {
                     this->cloud->downsample(STREAM_DOWNSAMPLING_LEAF_SIZE);
 
                     // set the registration as finished
-                    this->registrationOngoing = false;
+                    this->cloudReady = true;
                 }
+
+                // by this time, the mutex is out of scope, thus fred
 
                 // notify the waiting threads after releasing the mutex
                 this->cloudConditionVariable.notify_one();
 
                 // the points are no longer needed
                 spcl->getPointCloud()->clear();
-
-                // TODO: use a condition variable to protect this pointcloud, which will notify waiting threads when registration is done
 
                 // TODO: the PointCloudsManager requests the pointcloud at a fixed rate
                 /*
@@ -283,7 +285,17 @@ namespace pcl_aggregator::managers {
     }
 
     const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& StreamManager::getCloud() {
-        std::lock_guard<std::mutex> lock(this->cloudMutex);
+
+        // create the unique_lock
+        std::unique_lock lock(this->cloudMutex);
+
+        // wait for cloudReady to be "true"
+        this->cloudConditionVariable.wait(lock, [this]{return this->cloudReady;});
+
+        // set cloudReady to "true"
+        this->cloudReady = true;
+
+        // assign the value to the variable
         return this->cloud->getPointCloud();
     }
 
@@ -324,21 +336,5 @@ namespace pcl_aggregator::managers {
             const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &, std::mutex&)> &func) {
         this->pointCloudReadyCallback = func;
     }
-
-    bool StreamManager::isRegistrationOngoing() const {
-
-        return registrationOngoing;
-    }
-
-    void StreamManager::setCloudBeingQueried(bool value) {
-
-        this->cloudBeingQueried = value;
-    }
-
-    std::condition_variable* StreamManager::getCloudConditionVariable() {
-
-        return &(this->cloudConditionVariable);
-    }
-
 
 } // pcl_aggregator::managers

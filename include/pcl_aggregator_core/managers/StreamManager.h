@@ -56,7 +56,7 @@ namespace pcl_aggregator::managers {
             bool registrationOngoing = false;
 
             /*! \brief Is the cloud being queried by the PointCloudsManager? Used as condition. */
-            bool cloudBeingQueried = false;
+            bool cloudReady = false;
 
             /*! \brief Merged cloud access condition variable. */
             std::condition_variable cloudConditionVariable;
@@ -67,6 +67,8 @@ namespace pcl_aggregator::managers {
             std::mutex cloudMutex;
             /*! \brief Mutex to manage access to the sensor transform. */
             std::mutex sensorTransformMutex;
+            /*! \brief Mutex to manage access to the cloudsNotTransformed queue. */
+            std::mutex cloudQueueMutex;
 
             /*! \brief Thread which monitors the current PointCloud's age. Started by the constructor. */
             std::thread maxAgeWatcherThread;
@@ -149,15 +151,6 @@ namespace pcl_aggregator::managers {
              */
             void setPointCloudReadyCallback(const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud,
                     std::mutex& cloudMutex)>& func);
-
-            /*! \brief Is registration ongoing? */
-            bool isRegistrationOngoing() const;
-
-            /*! \brief Set that the pointcloud is being queried or not. */
-            void setCloudBeingQueried(bool value);
-
-            /*! \brief Get the merged pointcloud condition variable. */
-            std::condition_variable* getCloudConditionVariable();
 
 
         /*!
