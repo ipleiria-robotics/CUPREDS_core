@@ -17,6 +17,7 @@
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 #include <pcl_aggregator_core/utils/Utils.h>
 #include <thread>
+#include <condition_variable>
 #include <functional>
 
 #define STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE 0.2f
@@ -51,12 +52,23 @@ namespace pcl_aggregator::managers {
             /*! \brief Maximum age points live for. After this time they will be removed. */
             double maxAge;
 
+            /*! \brief Is registration currently ongoing? Used as a condition. */
+            bool registrationOngoing = false;
+
+            /*! \brief Is the cloud being queried by the PointCloudsManager? Used as condition. */
+            bool cloudReady = false;
+
+            /*! \brief Merged cloud access condition variable. */
+            std::condition_variable cloudConditionVariable;
+
             /*! \brief Mutex to manage access to the clouds set. */
             std::mutex setMutex;
             /*! \brief Mutex to manage access to the merged PointCloud. */
             std::mutex cloudMutex;
             /*! \brief Mutex to manage access to the sensor transform. */
             std::mutex sensorTransformMutex;
+            /*! \brief Mutex to manage access to the cloudsNotTransformed queue. */
+            std::mutex cloudQueueMutex;
 
             /*! \brief Thread which monitors the current PointCloud's age. Started by the constructor. */
             std::thread maxAgeWatcherThread;
@@ -100,7 +112,7 @@ namespace pcl_aggregator::managers {
              * \brief Get the merged version of the still valid PointClouds fed into this manager.
              * @return The merged PointCloud smart pointer.
              */
-            const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& getCloud(); // returning the pointer prevents massive memory copies
+            pcl::PointCloud<pcl::PointXYZRGBL> getCloud(); // returning the pointer prevents massive memory copies
 
             /*!
              * \brief Set the transform between the sensor frame and the robot base frame.

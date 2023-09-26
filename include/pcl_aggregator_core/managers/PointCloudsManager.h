@@ -37,6 +37,8 @@ namespace pcl_aggregator::managers {
             double maxAge;
             /*! \brief Configured max memory to be consumed by a PointCloud in MB. */
             size_t maxMemory;
+            /*! \brief Configured publish rate and registration rate. */
+            size_t publishRate;
             /*! \brief Hash map of managers, one for each sensor (topic). */
             std::unordered_map<std::string,std::unique_ptr<StreamManager>> streamManagers;
             /*! \brief Smart pointer to the merged PointCloud. */
@@ -48,6 +50,12 @@ namespace pcl_aggregator::managers {
             /*! \brief Mutex which manager concurrent access to the merged PointCloud pointer. */
             std::mutex cloudMutex;
 
+            /*! \brief Condition variable to protect access to the merged PointCloud pointer. */
+            std::condition_variable cloudConditionVariable;
+
+            /*! \brief Is the merged PointCloud ready to be accessed. */
+            bool cloudReady = true;
+
             /*! \brief Thread which monitors the PointCloud's memory usage. */
             std::thread memoryMonitoringThread;
             /*!\brief Flag to determine if the thread should be stopped or not. */
@@ -58,7 +66,7 @@ namespace pcl_aggregator::managers {
              * @param input The shared pointer to the input PointCloud.
              * @return Flag denoting if ICP was possible or not.
              */
-            bool appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& input);
+            bool appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL> input);
 
             /*! \brief Clear the points of the merged PointCloud. */
             void clearMergedCloud();
@@ -85,7 +93,14 @@ namespace pcl_aggregator::managers {
             void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::mutex& streamCloudMutex);
 
         public:
-            PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory);
+            /*! \brief PointCloudsManager constructor.
+             *
+             * @param nSources Number of sensors to manage.
+             * @param maxAge Maximum age for each point from the moment it is captured.
+             * @param maxMemory Memory hard-limit for point clouds.
+             * @param publishRate Point cloud publish rate in Hz.
+             */
+            PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate);
             ~PointCloudsManager();
 
             /*! \brief Get the number of sensors/streams being managed. */
@@ -114,6 +129,13 @@ namespace pcl_aggregator::managers {
          * @param instance Pointer to the PointCloudsManager instance.
          * */
         friend void memoryMonitoringRoutine(PointCloudsManager* instance);
+
+        /*! \brief Routine to query the last pointcloud of a StreamManager and register it.
+         *
+         * \param instance Pointer to the PointCloudsManager instance.
+         * \param topicName Name of the StreamManager topic.
+         */
+        friend void streamCloudQuerierRoutine(PointCloudsManager* instance, const std::string& topicName);
 
     };
 } // pcl_aggregator::managers
