@@ -284,19 +284,29 @@ namespace pcl_aggregator::managers {
 
     }
 
-    const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& StreamManager::getCloud() {
+    pcl::PointCloud<pcl::PointXYZRGBL> StreamManager::getCloud() {
 
-        // create the unique_lock
-        std::unique_lock lock(this->cloudMutex);
+        pcl::PointCloud<pcl::PointXYZRGBL> result;
 
-        // wait for cloudReady to be "true"
-        this->cloudConditionVariable.wait(lock, [this]{return this->cloudReady;});
+        {
+            // create the unique_lock
+            std::unique_lock lock(this->cloudMutex);
 
-        // set cloudReady to "true"
-        this->cloudReady = true;
+            // wait for cloudReady to be "true"
+            this->cloudConditionVariable.wait(lock, [this] { return this->cloudReady; });
 
-        // assign the value to the variable
-        return this->cloud->getPointCloud();
+            // assign the value to the variable
+            result = *this->cloud->getPointCloud();
+
+            // set cloudReady to "true"
+            this->cloudReady = true;
+        }
+
+        // notify the next thread in queue
+        this->cloudConditionVariable.notify_one();
+
+        // return the pointcloud
+        return result;
     }
 
     void StreamManager::setSensorTransform(const Eigen::Affine3d &transform) {
