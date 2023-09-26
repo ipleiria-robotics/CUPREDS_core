@@ -148,10 +148,6 @@ namespace pcl_aggregator::managers {
         }
         this->managersMutex.unlock();*/
 
-        /* TODO: have a background thread registering the last pointcloud from each StreamManager at a fixed rate
-         * maybe one per StreamManager??
-        */
-
         // wait for the mutex
         std::unique_lock<std::mutex> lock(this->cloudMutex);
 
@@ -240,13 +236,13 @@ namespace pcl_aggregator::managers {
                                                  std::mutex& streamCloudMutex) {
 
         // DEPRECATED
-        // TODO: create a thread to periodically register the merged pointcloud of each sensor
-
+        /*
         {
             std::lock_guard<std::mutex> lock(streamCloudMutex);
             this->appendToMerged(*cloud);
         }
         this->mergedCloud.downsample(VOXEL_LEAF_SIZE);
+         */
     }
 
     void PointCloudsManager::initStreamManager(const std::string &topicName, double maxAge) {

@@ -264,7 +264,6 @@ namespace pcl_aggregator::managers {
                 // the points are no longer needed
                 spcl->getPointCloud()->clear();
 
-                // TODO: the PointCloudsManager requests the pointcloud at a fixed rate
                 /*
                 if(this->pointCloudReadyCallback != nullptr) {
 
