@@ -46,12 +46,15 @@
 
 #define STREAM_DOWNSAMPLING_LEAF_SIZE 0.1f
 
+#define CONSUMER_TIMEOUT_MS 100
+
 namespace pcl_aggregator::managers {
 
     /*! \brief Manager of a stream of PointClouds.
      *
      * Manages a stream of PointClouds coming from a single sensor.
      * For example, merges and ages the PointClouds captured by a single LiDAR.
+     * Instances of this class are point cloud producers.
      *
      * */
     class IntraSensorManager {
@@ -125,12 +128,14 @@ namespace pcl_aggregator::managers {
 
             /*!
              * \brief Feed a PointCloud to manage.
+             * This method acts as point cloud producer.
              * @param newCloud The PointCloud smart pointer.
              */
             void addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr newCloud);
 
             /*!
              * \brief Get the merged version of the still valid PointClouds fed into this manager.
+             * This method acts as point cloud consumer: it waits for the point cloud to be ready before returning.
              * @return The merged PointCloud smart pointer.
              */
             pcl::PointCloud<pcl::PointXYZRGBL> getCloud(); // returning the pointer prevents massive memory copies
@@ -183,7 +188,7 @@ namespace pcl_aggregator::managers {
          * @param tf The transform to apply in form of an affine transformation.
          */
         friend void applyTransformRoutine(IntraSensorManager* instance,
-                                          const std::shared_ptr<entities::StampedPointCloud>& spcl,
+                                          const std::unique_ptr<entities::StampedPointCloud>& spcl,
                                           const Eigen::Affine3d& tf);
 
         /*! \brief Max age watching routine.

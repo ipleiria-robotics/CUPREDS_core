@@ -49,6 +49,7 @@ namespace pcl_aggregator::managers {
      *
      * This class keeps track of different sensors indexed by topic name, doing registration and point aging.
      * The IntraSensorManager class manages each individual sensor.
+     * The instance of this class (only 1 because is a singleton) is a point clouds consumer.
      */
     class InterSensorManager {
         private:

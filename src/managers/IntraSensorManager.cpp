@@ -102,7 +102,7 @@ namespace pcl_aggregator::managers {
         this->maxAgeWatcherThread = std::thread(maxAgeWatchingRoutine, this);
         pthread_setname_np(this->maxAgeWatcherThread.native_handle(), "maxAgeWatcherThread");
 
-        // this thread can dettach from the main thread
+        // this thread can detach from the main thread
         this->maxAgeWatcherThread.detach();
     }
 
@@ -202,8 +202,8 @@ namespace pcl_aggregator::managers {
         }
 
         // create a stamped point newCloud object to keep this pointcloud
-        std::shared_ptr<entities::StampedPointCloud> spcl =
-                std::make_shared<entities::StampedPointCloud>(this->topicName);
+        std::unique_ptr<entities::StampedPointCloud> spcl =
+                std::make_unique<entities::StampedPointCloud>(this->topicName);
         // the new pointcloud is moved to the StampedPointCloud
         spcl->setPointCloud(std::move(newCloud));
 
@@ -219,7 +219,7 @@ namespace pcl_aggregator::managers {
         // transform the incoming pointcloud and add directly to the set
 
         // start a thread to transform the pointcloud
-        auto transformRoutine = [this] (const std::shared_ptr<entities::StampedPointCloud>& spcl, const Eigen::Affine3d& tf) {
+        auto transformRoutine = [this] (const std::unique_ptr<entities::StampedPointCloud>& spcl, const Eigen::Affine3d& tf) {
             applyTransformRoutine(this, spcl, tf);
         };
 
@@ -236,12 +236,8 @@ namespace pcl_aggregator::managers {
             if(!spcl->getPointCloud()->empty()) {
 
                 {
-                    // TODO: this is one of the biggest bottlenecks. ICP locks the mutex for a lot of time
                     // lock the pointcloud mutex
                     std::unique_lock<std::mutex> lock(this->cloudMutex);
-
-                    // wait for the pointcloud to stop being used by other thread
-                    this->cloudConditionVariable.wait(lock, [this]{return this->cloudReady;});
 
                     // set that the pointcloud is being registered
                     this->cloudReady = false;
@@ -250,6 +246,7 @@ namespace pcl_aggregator::managers {
 
                         pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
+                        // align with the most recent point cloud in the origin of the frame (robot-centric)
                         icp.setInputSource(this->cloud->getPointCloud());
                         icp.setInputTarget(spcl->getPointCloud());
 
@@ -257,17 +254,11 @@ namespace pcl_aggregator::managers {
                         icp.setMaximumIterations(STREAM_ICP_MAX_ITERATIONS);
 
                         icp.align(*this->cloud->getPointCloud());
+                    }
 
-                        if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
-                                                                          *(spcl->getPointCloud())) < 0) {
-                            std::cerr << "Could not concatenate the pointclouds at the IntraSensorManager!" << std::endl;
-                        }
-
-                    } else {
-                        if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
-                                                                          *(spcl->getPointCloud())) < 0) {
-                            std::cerr << "Could not concatenate the pointclouds at the IntraSensorManager!" << std::endl;
-                        }
+                    if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
+                                                                      *(spcl->getPointCloud())) < 0) {
+                        std::cerr << "Could not concatenate the pointclouds at the IntraSensorManager!" << std::endl;
                     }
 
                     // downsample the new merged pointcloud
@@ -312,14 +303,14 @@ namespace pcl_aggregator::managers {
             // create the unique_lock
             std::unique_lock lock(this->cloudMutex);
 
-            // wait for cloudReady to be "true"
-            this->cloudConditionVariable.wait(lock, [this] { return this->cloudReady; });
+            // wait for cloudReady to be "true" and to be notified
+            // if the producer is not currently working, this would wait indefinitely without returning any point cloud
+            // hence using "wait_for": to unblock execution in that situation
+            this->cloudConditionVariable.wait_for(lock, std::chrono::milliseconds(CONSUMER_TIMEOUT_MS),
+                                                  [this] { return this->cloudReady; });
 
             // assign the value to the variable
             result = *this->cloud->getPointCloud();
-
-            // set cloudReady to "true"
-            this->cloudReady = true;
         }
 
         // notify the next thread in queue
@@ -344,7 +335,7 @@ namespace pcl_aggregator::managers {
     }
 
     void applyTransformRoutine(IntraSensorManager *instance,
-                               const std::shared_ptr<entities::StampedPointCloud>& spcl,
+                               const std::unique_ptr<entities::StampedPointCloud>& spcl,
                                const Eigen::Affine3d& tf) {
         spcl->applyTransform(tf);
     }
