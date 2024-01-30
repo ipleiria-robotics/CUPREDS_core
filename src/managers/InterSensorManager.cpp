@@ -276,4 +276,17 @@ namespace pcl_aggregator::managers {
 
         this->mergedCloud.getPointCloud()->clear();
     }
+
+    InterSensorManager &InterSensorManager::get(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate) {
+        if(instance == nullptr)
+            instance = new InterSensorManager(nSources, maxAge, maxMemory, publishRate);
+        return *instance;
+    }
+
+    void InterSensorManager::destruct() {
+        if(instance != nullptr) {
+            delete instance;
+            instance = nullptr;
+        }
+    }
 } // pcl_aggregator::managers

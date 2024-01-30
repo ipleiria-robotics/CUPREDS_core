@@ -2,8 +2,8 @@
 // Created by carlostojal on 01-05-2023.
 //
 
-#ifndef PCL_AGGREGATOR_CORE_INTERSENSORMANAGER_H
-#define PCL_AGGREGATOR_CORE_INTERSENSORMANAGER_H
+#ifndef CUPREDS_CORE_INTERSENSORMANAGER_H
+#define CUPREDS_CORE_INTERSENSORMANAGER_H
 
 #include <memory>
 #include <unordered_map>
@@ -31,6 +31,8 @@ namespace pcl_aggregator::managers {
      */
     class InterSensorManager {
         private:
+            /*! \brief Singleton class instance. */
+            static InterSensorManager* instance;
             /*! \brief The number of sensors being currently managed. */
             size_t nSources;
             /*! \brief The configured maximum point age. */
@@ -58,8 +60,21 @@ namespace pcl_aggregator::managers {
 
             /*! \brief Thread which monitors the PointCloud's memory usage. */
             std::thread memoryMonitoringThread;
+
             /*!\brief Flag to determine if the thread should be stopped or not. */
             bool keepThreadAlive = true;
+
+            /*! \brief InterSensorManager constructor.
+             *
+             * @param nSources Number of sensors to manage.
+             * @param maxAge Maximum age for each point from the moment it is captured.
+             * @param maxMemory Memory hard-limit for point clouds.
+             * @param publishRate Point cloud publish rate in Hz.
+             */
+            InterSensorManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate);
+
+            /*! \brief InterSensorManager destructor. Destroys the IntraSensorManager instances. */
+            ~InterSensorManager();
 
             /*! \brief Append the points of one PointCloud to the merged version of this manager.
              *
@@ -93,15 +108,16 @@ namespace pcl_aggregator::managers {
             void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::mutex& streamCloudMutex);
 
         public:
-            /*! \brief InterSensorManager constructor.
-             *
-             * @param nSources Number of sensors to manage.
-             * @param maxAge Maximum age for each point from the moment it is captured.
-             * @param maxMemory Memory hard-limit for point clouds.
-             * @param publishRate Point cloud publish rate in Hz.
-             */
-            InterSensorManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate);
-            ~InterSensorManager();
+
+            /*! \brief Singleton instance getter. */
+            static InterSensorManager& get(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate);
+
+            /*! \brief Singleton instance destructor. */
+            static void destruct();
+
+            InterSensorManager(const InterSensorManager&) = delete; // delete the copy constructor
+
+            InterSensorManager& operator=(const InterSensorManager&) = delete; // delete the assignment operator
 
             /*! \brief Get the number of sensors/streams being managed. */
             size_t getNClouds() const;
@@ -140,4 +156,4 @@ namespace pcl_aggregator::managers {
     };
 } // pcl_aggregator::managers
 
-#endif //PCL_AGGREGATOR_CORE_INTERSENSORMANAGER_H
+#endif //CUPREDS_CORE_INTERSENSORMANAGER_H
