@@ -2,11 +2,11 @@
 // Created by carlostojal on 01-05-2023.
 //
 
-#include <pcl_aggregator_core/managers/PointCloudsManager.h>
+#include <pcl_aggregator_core/managers/InterSensorManager.h>
 
 namespace pcl_aggregator::managers {
 
-    void memoryMonitoringRoutine(PointCloudsManager *instance) {
+    void memoryMonitoringRoutine(InterSensorManager *instance) {
 
         while(instance->keepThreadAlive) {
 
@@ -45,9 +45,9 @@ namespace pcl_aggregator::managers {
         }
     }
 
-    void streamCloudQuerierRoutine(PointCloudsManager* instance, const std::string& topicName) {
+    void streamCloudQuerierRoutine(InterSensorManager* instance, const std::string& topicName) {
 
-        // query the last pointcloud of the StreamManager by the topic name
+        // query the last pointcloud of the IntraSensorManager by the topic name
         pcl::PointCloud<pcl::PointXYZRGBL> streamCloud = instance->streamManagers[topicName]->getCloud();
 
         // lock the merged cloud mutex
@@ -72,7 +72,7 @@ namespace pcl_aggregator::managers {
         std::this_thread::sleep_for(std::chrono::duration<double>(1 / (double) instance->publishRate));
     }
 
-    PointCloudsManager::PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate):
+    InterSensorManager::InterSensorManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate):
     mergedCloud("mergedCloud") {
         this->nSources = nSources;
 
@@ -86,7 +86,7 @@ namespace pcl_aggregator::managers {
         this->memoryMonitoringThread.detach();
     }
 
-    PointCloudsManager::~PointCloudsManager() {
+    InterSensorManager::~InterSensorManager() {
 
         // free all the stream managers
         for(auto & streamManager : this->streamManagers) {
@@ -98,11 +98,11 @@ namespace pcl_aggregator::managers {
         this->memoryMonitoringThread.join();
     }
 
-    size_t PointCloudsManager::getNClouds() const {
+    size_t InterSensorManager::getNClouds() const {
         return this->nSources;
     }
 
-    void PointCloudsManager::addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, const std::string &topicName) {
+    void InterSensorManager::addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, const std::string &topicName) {
 
         // check if the pointcloud is null or empty
         if(cloud == nullptr)
@@ -119,13 +119,13 @@ namespace pcl_aggregator::managers {
 
     }
 
-    void PointCloudsManager::setTransform(const Eigen::Affine3d &transform, const std::string &topicName) {
+    void InterSensorManager::setTransform(const Eigen::Affine3d &transform, const std::string &topicName) {
         this->initStreamManager(topicName, this->maxAge);
 
         this->streamManagers[topicName]->setSensorTransform(transform);
     }
 
-    pcl::PointCloud<pcl::PointXYZRGBL> PointCloudsManager::getMergedCloud() {
+    pcl::PointCloud<pcl::PointXYZRGBL> InterSensorManager::getMergedCloud() {
         /*
         // clear the old merged cloud
         this->clearMergedCloud();
@@ -157,7 +157,7 @@ namespace pcl_aggregator::managers {
         return *(this->mergedCloud.getPointCloud());
     }
 
-    bool PointCloudsManager::appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL> input) {
+    bool InterSensorManager::appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL> input) {
 
         // TODO: move the registration implementation to the StampedPointCloud class
 
@@ -194,7 +194,7 @@ namespace pcl_aggregator::managers {
 
                     if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(),
                                                                       *inputCloudPtr) < 0) {
-                        std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
+                        std::cerr << "Could not concatenate the pointclouds at the InterSensorManager!"
                                   << std::endl;
                     }
 
@@ -202,7 +202,7 @@ namespace pcl_aggregator::managers {
 
                     /*
                     if(cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), *input) < 0) {
-                        std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!" << std::endl;
+                        std::cerr << "Could not concatenate the pointclouds at the InterSensorManager!" << std::endl;
                     }
                     couldAlign = false;
                      */
@@ -210,7 +210,7 @@ namespace pcl_aggregator::managers {
                 } else {
                     if (cuda::pointclouds::concatenatePointCloudsCuda(this->mergedCloud.getPointCloud(), input) <
                         0) {
-                        std::cerr << "Could not concatenate the pointclouds at the PointCloudsManager!"
+                        std::cerr << "Could not concatenate the pointclouds at the InterSensorManager!"
                                   << std::endl;
                     }
                 }
@@ -226,13 +226,13 @@ namespace pcl_aggregator::managers {
         return couldAlign;
     }
 
-    void PointCloudsManager::removePointsByLabel(const std::set<std::uint32_t>& labels) {
+    void InterSensorManager::removePointsByLabel(const std::set<std::uint32_t>& labels) {
 
         // remove the points with the label
         this->mergedCloud.removePointsWithLabels(labels);
     }
 
-    void PointCloudsManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud,
+    void InterSensorManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud,
                                                  std::mutex& streamCloudMutex) {
 
         // DEPRECATED
@@ -245,20 +245,20 @@ namespace pcl_aggregator::managers {
          */
     }
 
-    void PointCloudsManager::initStreamManager(const std::string &topicName, double maxAge) {
+    void InterSensorManager::initStreamManager(const std::string &topicName, double maxAge) {
         std::lock_guard<std::mutex> lock(this->managersMutex);
 
         if(this->streamManagers.count(topicName) != 0)
             return;
 
-        std::unique_ptr<StreamManager> newStreamManager = std::make_unique<StreamManager>(topicName, maxAge);
+        std::unique_ptr<IntraSensorManager> newStreamManager = std::make_unique<IntraSensorManager>(topicName, maxAge);
 
         // set the point removing method as a callback when some pointcloud ages on the stream manager
-        newStreamManager->setPointAgingCallback(std::bind(&PointCloudsManager::removePointsByLabel, this,
+        newStreamManager->setPointAgingCallback(std::bind(&InterSensorManager::removePointsByLabel, this,
                                                           std::placeholders::_1));
 
-        // add a pointcloud whenever the StreamManager has one ready
-        newStreamManager->setPointCloudReadyCallback(std::bind(&PointCloudsManager::addStreamPointCloud, this,
+        // add a pointcloud whenever the IntraSensorManager has one ready
+        newStreamManager->setPointCloudReadyCallback(std::bind(&InterSensorManager::addStreamPointCloud, this,
                                                                std::placeholders::_1, std::placeholders::_2));
 
         this->streamManagers[topicName] = std::move(newStreamManager);
@@ -270,7 +270,7 @@ namespace pcl_aggregator::managers {
         streamRegistrationThread.detach();
     }
 
-    void PointCloudsManager::clearMergedCloud() {
+    void InterSensorManager::clearMergedCloud() {
 
         std::lock_guard<std::mutex> lock(this->cloudMutex);
 

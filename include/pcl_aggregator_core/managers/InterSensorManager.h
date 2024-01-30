@@ -2,8 +2,8 @@
 // Created by carlostojal on 01-05-2023.
 //
 
-#ifndef PCL_AGGREGATOR_CORE_POINTCLOUDSMANAGER_H
-#define PCL_AGGREGATOR_CORE_POINTCLOUDSMANAGER_H
+#ifndef PCL_AGGREGATOR_CORE_INTERSENSORMANAGER_H
+#define PCL_AGGREGATOR_CORE_INTERSENSORMANAGER_H
 
 #include <memory>
 #include <unordered_map>
@@ -13,7 +13,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
-#include <pcl_aggregator_core/managers/StreamManager.h>
+#include <pcl_aggregator_core/managers/IntraSensorManager.h>
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 
 #define GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE 1.0f
@@ -27,9 +27,9 @@ namespace pcl_aggregator::managers {
      * \brief Manage PointClouds coming from several sensors, like several LiDARs and depth cameras.
      *
      * This class keeps track of different sensors indexed by topic name, doing registration and point aging.
-     * The StreamManager class manages each individual sensor.
+     * The IntraSensorManager class manages each individual sensor.
      */
-    class PointCloudsManager {
+    class InterSensorManager {
         private:
             /*! \brief The number of sensors being currently managed. */
             size_t nSources;
@@ -40,7 +40,7 @@ namespace pcl_aggregator::managers {
             /*! \brief Configured publish rate and registration rate. */
             size_t publishRate;
             /*! \brief Hash map of managers, one for each sensor (topic). */
-            std::unordered_map<std::string,std::unique_ptr<StreamManager>> streamManagers;
+            std::unordered_map<std::string,std::unique_ptr<IntraSensorManager>> streamManagers;
             /*! \brief Smart pointer to the merged PointCloud. */
             entities::StampedPointCloud mergedCloud;
 
@@ -73,7 +73,7 @@ namespace pcl_aggregator::managers {
 
             /*! \brief Initialize the stream manager for a given topic with a given max age.
              *
-             * @param topicName The name of the topic this StreamManager will manage.
+             * @param topicName The name of the topic this IntraSensorManager will manage.
              * @param maxAge The point's maximum age for this sensor.
              */
             void initStreamManager(const std::string& topicName, double maxAge);
@@ -93,15 +93,15 @@ namespace pcl_aggregator::managers {
             void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::mutex& streamCloudMutex);
 
         public:
-            /*! \brief PointCloudsManager constructor.
+            /*! \brief InterSensorManager constructor.
              *
              * @param nSources Number of sensors to manage.
              * @param maxAge Maximum age for each point from the moment it is captured.
              * @param maxMemory Memory hard-limit for point clouds.
              * @param publishRate Point cloud publish rate in Hz.
              */
-            PointCloudsManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate);
-            ~PointCloudsManager();
+            InterSensorManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate);
+            ~InterSensorManager();
 
             /*! \brief Get the number of sensors/streams being managed. */
             size_t getNClouds() const;
@@ -126,18 +126,18 @@ namespace pcl_aggregator::managers {
          *
          * When a PointCloud reaches the defined max size, some points are removed. It runs contantly on a thread.
          *
-         * @param instance Pointer to the PointCloudsManager instance.
+         * @param instance Pointer to the InterSensorManager instance.
          * */
-        friend void memoryMonitoringRoutine(PointCloudsManager* instance);
+        friend void memoryMonitoringRoutine(InterSensorManager* instance);
 
-        /*! \brief Routine to query the last pointcloud of a StreamManager and register it.
+        /*! \brief Routine to query the last pointcloud of a IntraSensorManager and register it.
          *
-         * \param instance Pointer to the PointCloudsManager instance.
-         * \param topicName Name of the StreamManager topic.
+         * \param instance Pointer to the InterSensorManager instance.
+         * \param topicName Name of the IntraSensorManager topic.
          */
-        friend void streamCloudQuerierRoutine(PointCloudsManager* instance, const std::string& topicName);
+        friend void streamCloudQuerierRoutine(InterSensorManager* instance, const std::string& topicName);
 
     };
 } // pcl_aggregator::managers
 
-#endif //PCL_AGGREGATOR_CORE_POINTCLOUDSMANAGER_H
+#endif //PCL_AGGREGATOR_CORE_INTERSENSORMANAGER_H

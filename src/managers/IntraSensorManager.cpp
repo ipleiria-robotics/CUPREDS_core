@@ -2,13 +2,13 @@
 // Created by carlostojal on 01-05-2023.
 //
 
-#include <pcl_aggregator_core/managers/StreamManager.h>
+#include <pcl_aggregator_core/managers/IntraSensorManager.h>
 #include "pcl_aggregator_core/cuda/CUDAPointClouds.cuh"
 
 
 namespace pcl_aggregator::managers {
 
-    void maxAgeWatchingRoutine(StreamManager* instance) {
+    void maxAgeWatchingRoutine(IntraSensorManager* instance) {
 
         // lambda function which removes a pointcloud from the merged version
         auto pointCloudRemovalRoutine = [instance](std::set<std::uint32_t> labels) {
@@ -59,7 +59,7 @@ namespace pcl_aggregator::managers {
                 // call a thread to run the callback
                 // if it was done in the same thread, it would delay the routine
 
-                // remove the points from the PointCloudsManager's merged pointcloud
+                // remove the points from the InterSensorManager's merged pointcloud
                 std::thread callbackThread = std::thread(instance->pointAgingCallback, labelsToRemove);
                 callbackThread.detach();
             }
@@ -72,7 +72,7 @@ namespace pcl_aggregator::managers {
         }
     }
 
-    StreamManager::StreamManager(const std::string& topicName, double maxAge) {
+    IntraSensorManager::IntraSensorManager(const std::string& topicName, double maxAge) {
         this->topicName = topicName;
         this->cloud = std::make_shared<entities::StampedPointCloud>(topicName);
         this->maxAge = maxAge;
@@ -85,7 +85,7 @@ namespace pcl_aggregator::managers {
         this->maxAgeWatcherThread.detach();
     }
 
-    StreamManager::~StreamManager() {
+    IntraSensorManager::~IntraSensorManager() {
         this->cloud.reset();
 
         // signal the watcher to stop
@@ -102,11 +102,11 @@ namespace pcl_aggregator::managers {
         }
     }
 
-    bool StreamManager::operator==(const StreamManager &other) const {
+    bool IntraSensorManager::operator==(const IntraSensorManager &other) const {
         return this->topicName == other.topicName;
     }
 
-    void StreamManager::computeTransform() {
+    void IntraSensorManager::computeTransform() {
         while(!this->cloudsNotTransformed.empty()) {
 
             // get the first element
@@ -121,7 +121,7 @@ namespace pcl_aggregator::managers {
         }
     }
 
-    void StreamManager::removePointCloud(std::uint32_t label) {
+    void IntraSensorManager::removePointCloud(std::uint32_t label) {
 
         {
             std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
@@ -146,7 +146,7 @@ namespace pcl_aggregator::managers {
 
     }
 
-    void StreamManager::removePointClouds(std::set<std::uint32_t> labels) {
+    void IntraSensorManager::removePointClouds(std::set<std::uint32_t> labels) {
 
         {
             std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
@@ -171,7 +171,7 @@ namespace pcl_aggregator::managers {
 
     }
 
-    void StreamManager::addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr newCloud) {
+    void IntraSensorManager::addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr newCloud) {
         // check the incoming pointcloud for null or empty
         if(newCloud == nullptr)
             return;
@@ -239,13 +239,13 @@ namespace pcl_aggregator::managers {
 
                         if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
                                                                           *(spcl->getPointCloud())) < 0) {
-                            std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
+                            std::cerr << "Could not concatenate the pointclouds at the IntraSensorManager!" << std::endl;
                         }
 
                     } else {
                         if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
                                                                           *(spcl->getPointCloud())) < 0) {
-                            std::cerr << "Could not concatenate the pointclouds at the StreamManager!" << std::endl;
+                            std::cerr << "Could not concatenate the pointclouds at the IntraSensorManager!" << std::endl;
                         }
                     }
 
@@ -283,7 +283,7 @@ namespace pcl_aggregator::managers {
 
     }
 
-    pcl::PointCloud<pcl::PointXYZRGBL> StreamManager::getCloud() {
+    pcl::PointCloud<pcl::PointXYZRGBL> IntraSensorManager::getCloud() {
 
         pcl::PointCloud<pcl::PointXYZRGBL> result;
 
@@ -308,7 +308,7 @@ namespace pcl_aggregator::managers {
         return result;
     }
 
-    void StreamManager::setSensorTransform(const Eigen::Affine3d &transform) {
+    void IntraSensorManager::setSensorTransform(const Eigen::Affine3d &transform) {
 
         std::lock_guard<std::mutex> lock(this->sensorTransformMutex);
 
@@ -318,30 +318,30 @@ namespace pcl_aggregator::managers {
         this->computeTransform();
     }
 
-    double StreamManager::getMaxAge() const {
+    double IntraSensorManager::getMaxAge() const {
         return this->maxAge;
     }
 
-    void applyTransformRoutine(StreamManager *instance,
+    void applyTransformRoutine(IntraSensorManager *instance,
                                const std::shared_ptr<entities::StampedPointCloud>& spcl,
                                const Eigen::Affine3d& tf) {
         spcl->applyTransform(tf);
     }
 
-    std::function<void(std::set<std::uint32_t> labels)> StreamManager::getPointAgingCallback() const {
+    std::function<void(std::set<std::uint32_t> labels)> IntraSensorManager::getPointAgingCallback() const {
         return this->pointAgingCallback;
     }
 
-    void StreamManager::setPointAgingCallback(const std::function<void(std::set<std::uint32_t>)>& func) {
+    void IntraSensorManager::setPointAgingCallback(const std::function<void(std::set<std::uint32_t>)>& func) {
         this->pointAgingCallback = func;
     }
 
     std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &cloud, std::mutex& cloudMutex)>
-    StreamManager::getPointCloudReadyCallback() const {
+    IntraSensorManager::getPointCloudReadyCallback() const {
         return this->pointCloudReadyCallback;
     }
 
-    void StreamManager::setPointCloudReadyCallback(
+    void IntraSensorManager::setPointCloudReadyCallback(
             const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &, std::mutex&)> &func) {
         this->pointCloudReadyCallback = func;
     }

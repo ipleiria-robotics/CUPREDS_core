@@ -2,8 +2,8 @@
 // Created by carlostojal on 01-05-2023.
 //
 
-#ifndef PCL_AGGREGATOR_CORE_STREAMMANAGER_H
-#define PCL_AGGREGATOR_CORE_STREAMMANAGER_H
+#ifndef PCL_AGGREGATOR_CORE_INTRASENSORMANAGER_H
+#define PCL_AGGREGATOR_CORE_INTRASENSORMANAGER_H
 
 #include <string>
 #include <memory>
@@ -33,7 +33,7 @@ namespace pcl_aggregator::managers {
      * For example, merges and ages the PointClouds captured by a single LiDAR.
      *
      * */
-    class StreamManager {
+    class IntraSensorManager {
 
         private:
             std::string topicName;
@@ -55,7 +55,7 @@ namespace pcl_aggregator::managers {
             /*! \brief Is registration currently ongoing? Used as a condition. */
             bool registrationOngoing = false;
 
-            /*! \brief Is the cloud being queried by the PointCloudsManager? Used as condition. */
+            /*! \brief Is the cloud being queried by the InterSensorManager? Used as condition. */
             bool cloudReady = false;
 
             /*! \brief Merged cloud access condition variable. */
@@ -76,13 +76,13 @@ namespace pcl_aggregator::managers {
             bool keepAgeWatcherAlive = true;
 
             /*! \brief Callback function to call when a PointCloud ages older than maxAge.
-             * May be useful to remove points from the PointCloudsManager's PointCloud.
+             * May be useful to remove points from the InterSensorManager's PointCloud.
              *
              * @param label The label to remove
              */
             std::function<void(std::set<std::uint32_t> labels)> pointAgingCallback = nullptr;
 
-            /*! \brief Callback function to call when the StreamManager has a new PointCloud ready.
+            /*! \brief Callback function to call when the IntraSensorManager has a new PointCloud ready.
              * May be useful to add PointClouds to the
              */
             std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::mutex& cloudMutex)>
@@ -96,10 +96,10 @@ namespace pcl_aggregator::managers {
             void removePointClouds(std::set<std::uint32_t> labels);
 
         public:
-            StreamManager(const std::string& topicName, double maxAge);
-            ~StreamManager();
+            IntraSensorManager(const std::string& topicName, double maxAge);
+            ~IntraSensorManager();
 
-            bool operator==(const StreamManager& other) const;
+            bool operator==(const IntraSensorManager& other) const;
 
 
             /*!
@@ -155,27 +155,27 @@ namespace pcl_aggregator::managers {
 
         /*!
          * \brief PointCloud transform routine.
-         * Method intended to be called from a thread to transform the StampedPointCloud of a StreamManager in detached state.
+         * Method intended to be called from a thread to transform the StampedPointCloud of a IntraSensorManager in detached state.
          *
-         * @param instance The StreamManager instance pointer in which this PointCloud exists.
+         * @param instance The IntraSensorManager instance pointer in which this PointCloud exists.
          * @param spcl The PointCloud shared pointer to transform.
          * @param tf The transform to apply in form of an affine transformation.
          */
-        friend void applyTransformRoutine(StreamManager* instance,
+        friend void applyTransformRoutine(IntraSensorManager* instance,
                                           const std::shared_ptr<entities::StampedPointCloud>& spcl,
                                           const Eigen::Affine3d& tf);
 
         /*! \brief Max age watching routine.
          *
          * This routine is ran by a thread in background watching the age of the PointClouds
-         * contained in this StreamManager. Whenever a thread older than the max age is found it is removed.
+         * contained in this IntraSensorManager. Whenever a thread older than the max age is found it is removed.
          *
-         * @param instance Pointer to the StreamManager instance
+         * @param instance Pointer to the IntraSensorManager instance
          */
-        friend void maxAgeWatchingRoutine(StreamManager* instance);
+        friend void maxAgeWatchingRoutine(IntraSensorManager* instance);
 
     };
 
 } // pcl_aggregator::managers
 
-#endif //PCL_AGGREGATOR_CORE_STREAMMANAGER_H
+#endif //PCL_AGGREGATOR_CORE_INTRASENSORMANAGER_H
