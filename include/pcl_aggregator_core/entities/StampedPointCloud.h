@@ -23,11 +23,12 @@
 
  */
 
-#ifndef PCL_AGGREGATOR_CORE_STAMPEDPOINTCLOUD_H
-#define PCL_AGGREGATOR_CORE_STAMPEDPOINTCLOUD_H
+#ifndef CUPREDS_CORE_STAMPEDPOINTCLOUD_H
+#define CUPREDS_CORE_STAMPEDPOINTCLOUD_H
 
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
+#include <pcl/registration/icp.h>
 #include <pcl/filters/voxel_grid.h>
 #include <eigen3/Eigen/Dense>
 #include <cstdint>
@@ -35,6 +36,10 @@
 #include <mutex>
 
 #define POINTCLOUD_ORIGIN_NONE "none"
+
+#define MAX_CORRESPONDENCE_DISTANCE 0.2f
+#define MAX_ICP_ITERATIONS 5
+#define ICP_DOWNSAMPLE_SIZE 0.1f
 
 namespace pcl_aggregator::entities {
 
@@ -52,9 +57,6 @@ namespace pcl_aggregator::entities {
 
             /*! \brief Was the transform to the robot frame computed? */
             bool transformComputed = false;
-
-            /*! \brief Was the transform computed by ICP applied? */
-            bool icpTransformComputed = false;
 
             // the name of the topic the pointcloud came from
             std::string originTopic = POINTCLOUD_ORIGIN_NONE;
@@ -74,14 +76,16 @@ namespace pcl_aggregator::entities {
 
             /*! \brief Get the PointCloud timestamp. */
             unsigned long long getTimestamp() const;
+
             /*! \brief Get a smart pointer to the PointCloud. */
             typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& getPointCloud();
+
             /*! \brief Get the origin topic name. */
             std::string getOriginTopic() const;
+
             /*! \brief Get the label of the PointCloud. Should be unique. */
             std::uint32_t getLabel() const;
-            /*! \brief Set the PointCloud's timestamp. */
-            void setTimestamp(unsigned long long t);
+
             /*! \brief Set the PointCloud by smart pointer. This method moves the pointer, does not copy it or increment use count.
              * @param cloud The PointCloud smart pointer to move from.
              * @param assignGeneratedLabel Assign a generated label or not. Generating the label has an additional overhead, but is usually needed.
@@ -94,13 +98,9 @@ namespace pcl_aggregator::entities {
 
             /*! \brief Check if the transform to the robot base frame was computed. */
             bool isTransformComputed() const;
+
             /*! \brief Apply the robot frame transform. */
             void applyTransform(const Eigen::Affine3d& tf);
-
-            /*! \brief Check if the ICP transform was computed on this PointCloud. */
-            bool isIcpTransformComputed() const;
-            /*! \brief Apply the ICP transform. */
-            void applyIcpTransform(const Eigen::Matrix4f& tf);
 
             /*! \brief Assign a label to a PointCloud.
              *
@@ -127,17 +127,24 @@ namespace pcl_aggregator::entities {
              */
             void downsample(float leafSize);
 
+            /*! \brief Register another PointCloud.
+             *
+             * @param cloud The PointCloud to register.
+             * @param thisAsCenter Use this instance as the center of the frame, or the oncoming?
+             */
+            void registerPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, bool thisAsCenter = false);
+
     };
 
     /*! \brief Custom comparison functor between stamped point clouds. The comparison criteria is the timestamp. */
     struct CompareStampedPointCloudPointers {
 
-        bool operator()(const std::shared_ptr<StampedPointCloud>& first,
-                const std::shared_ptr<StampedPointCloud>& second) const {
+        bool operator()(const std::unique_ptr<StampedPointCloud>& first,
+                const std::unique_ptr<StampedPointCloud>& second) const {
             return first->getTimestamp() < second->getTimestamp();
         }
     };
 
 } // pcl_aggregator::entities
 
-#endif //PCL_AGGREGATOR_CORE_STAMPEDPOINTCLOUD_H
+#endif //CUPREDS_CORE_STAMPEDPOINTCLOUD_H

@@ -76,14 +76,6 @@ namespace pcl_aggregator::entities {
         return this->label;
     }
 
-    bool StampedPointCloud::isIcpTransformComputed() const {
-        return icpTransformComputed;
-    }
-
-    void StampedPointCloud::setTimestamp(unsigned long long t) {
-        this->timestamp = t;
-    }
-
     void StampedPointCloud::setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr c, bool assignGeneratedLabel) {
 
         std::lock_guard<std::mutex> lock(cloudMutex);
@@ -135,19 +127,6 @@ namespace pcl_aggregator::entities {
         this->transformComputed = true;
     }
 
-    void StampedPointCloud::applyIcpTransform(const Eigen::Matrix4f& tf) {
-
-        if(!icpTransformComputed) {
-
-            Eigen::Matrix4d mat4d = tf.cast<double>();
-            Eigen::Affine3d affine(mat4d);
-
-            this->applyTransform(affine);
-
-            this->icpTransformComputed = true;
-        }
-    }
-
     void StampedPointCloud::removePointsWithLabel(std::uint32_t label) {
 
         std::lock_guard<std::mutex> lock(this->cloudMutex);
@@ -183,5 +162,50 @@ namespace pcl_aggregator::entities {
         voxelGrid.setInputCloud(this->cloud);
         voxelGrid.setLeafSize(leafSize, leafSize, leafSize);
         voxelGrid.filter(*this->cloud);
+    }
+
+    void StampedPointCloud::registerPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& newCloud, bool thisAsCenter) {
+
+        // if the new point cloud is empty, not need to further processing
+        if(newCloud->empty())
+            return;
+
+        // if this point cloud is empty, it can just become the new
+        if(this->cloud->empty()) {
+            if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud,
+                                                              reinterpret_cast<const pcl::PointCloud<pcl::PointXYZRGBL> &>(newCloud)) <
+                0) {
+                throw std::runtime_error("Error copying incoming point cloud");
+            }
+            return;
+        }
+
+        // if none of the point clouds are empty, do the registration
+        pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
+
+        // set ICP convergence parameters
+        icp.setMaxCorrespondenceDistance(MAX_CORRESPONDENCE_DISTANCE);
+        icp.setMaximumIterations(MAX_ICP_ITERATIONS);
+
+        if(thisAsCenter) {
+            // the incoming point cloud is transformed
+            icp.setInputSource(newCloud);
+            icp.setInputTarget(this->cloud);
+            // transform newCloud
+            icp.align(*newCloud);
+        } else {
+            // this point cloud is transformed
+            icp.setInputSource(this->cloud);
+            icp.setInputTarget(newCloud);
+            // transform this->cloud
+            icp.align(*this->cloud);
+        }
+
+        // merge the point clouds after registration
+        if(cuda::pointclouds::concatenatePointCloudsCuda(this->cloud, reinterpret_cast<const pcl::PointCloud<pcl::PointXYZRGBL> &>(newCloud)) < 0) {
+            throw std::runtime_error("Error concatenating point clouds after registration");
+        }
+
+        this->downsample(ICP_DOWNSAMPLE_SIZE);
     }
 } // pcl_aggregator::entities
