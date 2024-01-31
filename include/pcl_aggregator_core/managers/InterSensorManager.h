@@ -128,13 +128,6 @@ namespace pcl_aggregator::managers {
             /*! \brief InterSensorManager destructor. Destroys the IntraSensorManager instances. */
             ~InterSensorManager();
 
-            /*! \brief Append the points of one PointCloud to the merged version of this manager.
-             *
-             * @param input The shared pointer to the input PointCloud.
-             * @return Flag denoting if ICP was possible or not.
-             */
-            bool appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL> input);
-
             /*! \brief Clear the points of the merged PointCloud. */
             void clearMergedCloud();
 
