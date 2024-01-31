@@ -188,23 +188,22 @@ namespace pcl_aggregator::managers {
 
         std::thread pointRemovingThread = std::thread([this,labels]() {
 
-            // lock the point cloud
-            std::unique_lock lock(this->cloudMutex);
+            {
+                // lock the point cloud
+                std::unique_lock lock(this->cloudMutex);
 
-            // wait for the condition variable
-            this->cloudConditionVariable.wait(lock, [this]() {
-                return this->cloudReady;
-            });
+                // wait for the condition variable
+                this->cloudConditionVariable.wait(lock, [this]() {
+                    return this->cloudReady;
+                });
 
-            this->cloudReady = false;
+                this->cloudReady = false;
 
-            // remove the points with the label
-            this->mergedCloud.removePointsWithLabels(labels);
+                // remove the points with the label
+                this->mergedCloud.removePointsWithLabels(labels);
 
-            this->cloudReady = true;
-
-            // notify the condition variable
-            this->cloudReady = true;
+                this->cloudReady = true;
+            }
 
             this->cloudConditionVariable.notify_one();
         });
@@ -348,9 +347,9 @@ namespace pcl_aggregator::managers {
                 this->mergedCloud.registerPointCloud(newCloud.getPointCloud());
 
                 this->cloudReady = true;
-
-                this->cloudConditionVariable.notify_one();
             }
+
+            this->cloudConditionVariable.notify_one();
 
             // notify the next worker to start
             this->pendingCloudsCond.notify_one();

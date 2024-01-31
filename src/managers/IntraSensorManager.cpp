@@ -110,11 +110,22 @@ namespace pcl_aggregator::managers {
     void IntraSensorManager::removePointClouds(std::set<std::uint32_t> labels) {
 
         {
-            std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
+            std::unique_lock lock(this->cloudMutex);
+
+            this->cloudConditionVariable.wait(lock, [this]() {
+                return this->cloudReady;
+            });
+
+            this->cloudReady = false;
 
             // remove points with that label from the merged pointcloud
             this->cloud->removePointsWithLabels(labels);
+
+            this->cloudReady = true;
+
         }
+
+        this->cloudConditionVariable.notify_one();
 
 
         // lock the set
@@ -181,6 +192,10 @@ namespace pcl_aggregator::managers {
         {
             // create the unique_lock
             std::unique_lock lock(this->cloudMutex);
+
+            this->cloudConditionVariable.wait(lock, [this]() {
+                return this->cloudReady;
+            });
 
             // assign the value to the variable
             result = *this->cloud->getPointCloud();
@@ -257,12 +272,22 @@ namespace pcl_aggregator::managers {
                 // lock the cloud mutex
                 std::unique_lock lock(this->cloudMutex);
 
+                this->cloudConditionVariable.wait(lock, [this]() {
+                    return this->cloudReady;
+                });
+
+                this->cloudReady = false;
+
                 // register the point cloud
                 this->cloud->registerPointCloud(cloudToRegister->getPointCloud());
+
+                this->cloudReady = true;
 
                 // get the point cloud
                 spcl = *this->cloud;
             }
+
+            this->cloudConditionVariable.notify_one();
 
             // add the point cloud to the set
             {
@@ -290,16 +315,20 @@ namespace pcl_aggregator::managers {
         // while not signaled to stop
         while(this->keepAgeWatcherAlive) {
 
-            // lock the set
-            std::unique_lock lock(this->setMutex);
+            {
+                // lock the set
+                std::unique_lock lock(this->setMutex);
 
-            // find point clouds older than the max age
-            // the iterator iterates the set in ascending order
-            for(auto& iter : this->clouds) {
-                if(iter->getTimestamp() <= utils::Utils::getMaxTimestampForAge(this->maxAge))
-                    labelsToRemove.insert(iter->getLabel());
-                else
-                    break;
+                // find point clouds older than the max age
+                // the iterator iterates the set in ascending order
+                for (auto &iter: this->clouds) {
+                    if (iter->getTimestamp() <= utils::Utils::getMaxTimestampForAge(this->maxAge)) {
+                        labelsToRemove.insert(iter->getLabel());
+                        this->clouds.erase(iter); // remove from the set
+                    } else {
+                        break;
+                    }
+                }
             }
 
             // remove the point clouds
