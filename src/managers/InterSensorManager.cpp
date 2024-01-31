@@ -186,12 +186,27 @@ namespace pcl_aggregator::managers {
 
     void InterSensorManager::removePointsByLabel(const std::set<std::uint32_t>& labels) {
 
-        // lock the point cloud
-        std::lock_guard lock(this->cloudMutex);
-
         std::thread pointRemovingThread = std::thread([this,labels]() {
+
+            // lock the point cloud
+            std::unique_lock lock(this->cloudMutex);
+
+            // wait for the condition variable
+            this->cloudConditionVariable.wait(lock, [this]() {
+                return this->cloudReady;
+            });
+
+            this->cloudReady = false;
+
             // remove the points with the label
             this->mergedCloud.removePointsWithLabels(labels);
+
+            this->cloudReady = true;
+
+            // notify the condition variable
+            this->cloudReady = true;
+
+            this->cloudConditionVariable.notify_one();
         });
         pointRemovingThread.detach();
     }
@@ -322,8 +337,19 @@ namespace pcl_aggregator::managers {
                 // lock the point cloud mutex
                 std::unique_lock lock(this->cloudMutex);
 
+                // wait for the point cloud condition variable
+                this->cloudConditionVariable.wait(lock, [this]() {
+                    return this->cloudReady;
+                });
+
+                this->cloudReady = false;
+
                 // register the point cloud
                 this->mergedCloud.registerPointCloud(newCloud.getPointCloud());
+
+                this->cloudReady = true;
+
+                this->cloudConditionVariable.notify_one();
             }
 
             // notify the next worker to start
