@@ -148,11 +148,12 @@ namespace pcl_aggregator::managers {
 
         // create the entry
         // this is a shared pointer because it is shared among the queue and the map
-        std::shared_ptr<struct pending_cloud_entry_t> newEntry = std::make_shared<struct pending_cloud_entry_t>(
+        struct pending_cloud_entry_t e = {
                 cloud,
                 sensorName,
                 0 // because will be added to the front
-                );
+        };
+        std::shared_ptr<struct pending_cloud_entry_t> newEntry = std::make_shared<struct pending_cloud_entry_t>(e);
 
         // acquire the mutex
         std::unique_lock lock(this->pendingCloudsMutex);
