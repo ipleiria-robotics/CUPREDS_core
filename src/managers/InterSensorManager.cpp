@@ -180,8 +180,6 @@ namespace pcl_aggregator::managers {
 
     bool InterSensorManager::appendToMerged(pcl::PointCloud<pcl::PointXYZRGBL> input) {
 
-        // TODO: move the registration implementation to the StampedPointCloud class
-
         bool couldAlign = false;
 
         // create a pointer from the pointcloud
@@ -253,17 +251,59 @@ namespace pcl_aggregator::managers {
         this->mergedCloud.removePointsWithLabels(labels);
     }
 
-    void InterSensorManager::addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud,
-                                                 std::mutex& streamCloudMutex) {
+    void InterSensorManager::addSensorPointCloud(entities::StampedPointCloud cloud,
+                                                 std::string& sensorName) {
 
-        // DEPRECATED
-        /*
-        {
-            std::lock_guard<std::mutex> lock(streamCloudMutex);
-            this->appendToMerged(*cloud);
+        // create the entry
+        // this is a shared pointer because it is shared among the queue and the map
+        std::shared_ptr<struct pending_cloud_entry_t> newEntry = std::make_shared<struct pending_cloud_entry_t>(
+                cloud,
+                sensorName,
+                0 // because will be added to the front
+                );
+
+        // acquire the mutex
+        std::unique_lock lock(this->pendingCloudsMutex);
+
+        // verify if the queue has space
+        // if it doesn't, remove the oldest
+        if(this->pendingCloudsQueue.size() == MAX_WORKER_QUEUE_LEN) {
+            // get the last element
+            std::shared_ptr<struct pending_cloud_entry_t>& toRemove = std::ref(this->pendingCloudsQueue.back());
+            // remove from the map
+            this->pendingCloudsBySensorName.erase(toRemove->sensorName);
+            // remove from the queue
+            this->pendingCloudsQueue.pop_back();
         }
-        this->mergedCloud.downsample(VOXEL_LEAF_SIZE);
-         */
+
+        // if it was already in queue, remove the existent
+        if(this->pendingCloudsBySensorName.contains(sensorName)) {
+
+            // get a reference
+            std::shared_ptr<struct pending_cloud_entry_t>& existent = std::ref(this->pendingCloudsBySensorName[sensorName]);
+            size_t lookupIndex = existent->queueIndex;
+
+            // remove the existent entry
+            // from the queue
+            this->pendingCloudsQueue.erase(this->pendingCloudsQueue.begin() + lookupIndex);
+            // and from the map
+            this->pendingCloudsBySensorName.erase(sensorName);
+
+            // update subsequent entries
+            for(size_t i = lookupIndex; i < this->pendingCloudsQueue.size(); i++) {
+                (this->pendingCloudsQueue[i]->queueIndex)--;
+            }
+        }
+
+        // add the entry to the front of the queue
+        this->pendingCloudsQueue.push_front(newEntry);
+        // add the entry to the map
+        this->pendingCloudsBySensorName[sensorName] = newEntry;
+        // release ownership from this method
+        newEntry.reset();
+
+        // notify the next worker that work is available
+        this->pendingCloudsCond.notify_one();
     }
 
     void InterSensorManager::initStreamManager(const std::string &topicName, double maxAge) {
@@ -279,7 +319,7 @@ namespace pcl_aggregator::managers {
                                                           std::placeholders::_1));
 
         // add a pointcloud whenever the IntraSensorManager has one ready
-        newStreamManager->setPointCloudReadyCallback(std::bind(&InterSensorManager::addStreamPointCloud, this,
+        newStreamManager->setPointCloudReadyCallback(std::bind(&InterSensorManager::addSensorPointCloud, this,
                                                                std::placeholders::_1, std::placeholders::_2));
 
         this->streamManagers[topicName] = std::move(newStreamManager);

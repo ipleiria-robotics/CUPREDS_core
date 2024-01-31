@@ -40,9 +40,17 @@
 #define GLOBAL_ICP_MAX_CORRESPONDENCE_DISTANCE 1.0f
 #define GLOBAL_ICP_MAX_ITERATIONS 3
 
+#define MAX_WORKER_QUEUE_LEN 10
+
 #define VOXEL_LEAF_SIZE 0.2f
 
 namespace pcl_aggregator::managers {
+
+    struct pending_cloud_entry_t {
+        entities::StampedPointCloud cloud;
+        std::string sensorName;
+        size_t queueIndex; // index in the queue
+    };
 
     /*!
      * \brief Manage PointClouds coming from several sensors, like several LiDARs and depth cameras.
@@ -86,6 +94,21 @@ namespace pcl_aggregator::managers {
             /*!\brief Flag to determine if the thread should be stopped or not. */
             bool keepThreadAlive = true;
 
+            /*! \brief A queue with the sensor point clouds pending to be registered.
+             *
+             * Only the most recent for each sensor can be present here, at most.
+             */
+            std::deque<std::shared_ptr<struct pending_cloud_entry_t>> pendingCloudsQueue;
+
+            /*! \brief A map of the pending sensor point clouds indexed by sensor name. */
+            std::unordered_map<std::string,std::shared_ptr<pending_cloud_entry_t>> pendingCloudsBySensorName;
+
+            /*! \brief Mutex to control access to the queue and map of pending point clouds. */
+            std::mutex pendingCloudsMutex;
+
+            /*! \brief Condition variable to constrol access to the queue and map of pending point clouds. */
+            std::condition_variable pendingCloudsCond;
+
             /*! \brief InterSensorManager constructor.
              *
              * @param nSources Number of sensors to manage.
@@ -122,12 +145,12 @@ namespace pcl_aggregator::managers {
              */
             void removePointsByLabel(const std::set<std::uint32_t>& labels);
 
-            /*! \brief Add the processed PointCloud of a given stream to the merged.
-             * Used typically when the Stream finishes processing a new PointCloud.
+            /*! \brief Add the processed PointCloud of a given sensor to the merged.
+             * Used typically when the sensor finishes processing a new PointCloud.
              *
              * @param cloud The PointCloud to add.
              */
-            void addStreamPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::mutex& streamCloudMutex);
+            void addSensorPointCloud(entities::StampedPointCloud cloud, std::string& sensorName);
 
         public:
 
