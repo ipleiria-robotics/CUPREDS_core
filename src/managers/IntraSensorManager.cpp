@@ -95,7 +95,7 @@ namespace pcl_aggregator::managers {
 
     IntraSensorManager::IntraSensorManager(const std::string& topicName, double maxAge) {
         this->topicName = topicName;
-        this->cloud = std::make_shared<entities::StampedPointCloud>(topicName);
+        this->cloud = std::make_unique<entities::StampedPointCloud>(topicName);
         this->maxAge = maxAge;
 
         // start the age watcher thread
@@ -289,13 +289,13 @@ namespace pcl_aggregator::managers {
         this->pointAgingCallback = func;
     }
 
-    std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &cloud, std::mutex& cloudMutex)>
+    std::function<void(entities::StampedPointCloud cloud, std::string& topicName)>
     IntraSensorManager::getPointCloudReadyCallback() const {
         return this->pointCloudReadyCallback;
     }
 
     void IntraSensorManager::setPointCloudReadyCallback(
-            const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &, std::mutex&)> &func) {
+            const std::function<void(entities::StampedPointCloud, std::string&)> &func) {
         this->pointCloudReadyCallback = func;
     }
 
@@ -311,7 +311,7 @@ namespace pcl_aggregator::managers {
 
                 // wait for a job to be available / stop if signaled
                 this->cloudsNotRegisteredCond.wait(lock, [this]() {
-                    return this->cloudsNotRegistered.size() > 0 || this->workersShouldStop;
+                    return !this->cloudsNotRegistered.empty() || this->workersShouldStop;
                 });
                 // if the workers should stop, do it
                 if (this->workersShouldStop)
@@ -328,11 +328,20 @@ namespace pcl_aggregator::managers {
             // register the point cloud
             this->cloud->registerPointCloud(cloudToRegister->getPointCloud());
 
+            // get the point cloud
+            entities::StampedPointCloud spcl = *this->cloud;
+
             // add the point cloud to the set
             {
                 std::unique_lock lock(this->setMutex);
+                // the points can now be removed, all that matters is the label from now on. saves memory
+                cloudToRegister->getPointCloud()->clear();
                 this->clouds.insert(std::move(cloudToRegister));
             }
+
+            // call the InterSensorManager-defined callback
+            // ATTENTION: on the InterSensorManager side this should be non-blocking, e.g., by adding to a queue of work
+            this->pointCloudReadyCallback(spcl, this->topicName);
 
             // after completing the work, tell the next worker to pick a job
             this->cloudsNotRegisteredCond.notify_one();
