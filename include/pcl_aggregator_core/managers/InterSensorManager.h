@@ -44,6 +44,8 @@
 
 #define VOXEL_LEAF_SIZE 0.2f
 
+#define NUM_INTER_SENSOR_WORKERS 2
+
 namespace pcl_aggregator::managers {
 
     struct pending_cloud_entry_t {
@@ -93,6 +95,11 @@ namespace pcl_aggregator::managers {
 
             /*!\brief Flag to determine if the thread should be stopped or not. */
             bool keepThreadAlive = true;
+
+            std::vector<std::thread> workers;
+
+            /*! \brief Flag to signal workers to stop. */
+            bool workersShouldStop = false;
 
             /*! \brief A queue with the sensor point clouds pending to be registered.
              *
@@ -182,6 +189,8 @@ namespace pcl_aggregator::managers {
             void setTransform(const Eigen::Affine3d& transform, const std::string& topicName);
 
             pcl::PointCloud<pcl::PointXYZRGBL> getMergedCloud();
+
+            void workersLoop();
 
         /*! \brief Memory monitoring routine.
          *

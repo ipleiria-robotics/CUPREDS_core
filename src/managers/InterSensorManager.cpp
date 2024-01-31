@@ -105,6 +105,12 @@ namespace pcl_aggregator::managers {
         this->memoryMonitoringThread = std::thread(memoryMonitoringRoutine, this);
         pthread_setname_np(this->memoryMonitoringThread.native_handle(), "memory_monitoring_thread");
         this->memoryMonitoringThread.detach();
+
+        // create the workers
+        this->workersShouldStop = false;
+        for(size_t i = 0; i < NUM_INTER_SENSOR_WORKERS; i++) {
+            this->workers.emplace_back(&InterSensorManager::workersLoop, this);
+        }
     }
 
     InterSensorManager::~InterSensorManager() {
@@ -117,6 +123,10 @@ namespace pcl_aggregator::managers {
         // wait for the memory monitoring thread
         this->keepThreadAlive = false;
         this->memoryMonitoringThread.join();
+
+        // signal all workers to stop
+        this->workersShouldStop = true;
+        this->pendingCloudsCond.notify_all();
     }
 
     size_t InterSensorManager::getNClouds() const {
@@ -349,5 +359,47 @@ namespace pcl_aggregator::managers {
             delete instance;
             instance = nullptr;
         }
+    }
+
+    void InterSensorManager::workersLoop() {
+
+        while(true) {
+
+            entities::StampedPointCloud newCloud(POINTCLOUD_ORIGIN_NONE);
+
+            {
+                // acquire the queue mutex
+                std::unique_lock lock(this->pendingCloudsMutex);
+
+                // wait for an entry to be available / stop if signaled
+                this->pendingCloudsCond.wait(lock, [this]() {
+                    return !this->pendingCloudsQueue.empty() || this->workersShouldStop;
+                });
+                // if the workers should stop, do it
+                if (this->workersShouldStop)
+                    return;
+
+                // pick an entry from the front of the queue
+                std::shared_ptr<struct pending_cloud_entry_t>& work = std::ref(this->pendingCloudsQueue.front());
+                std::string sensorName = work->sensorName;
+                newCloud = work->cloud; // get the point cloud from the entry
+                // remove from the queue
+                this->pendingCloudsQueue.pop_front();
+                // remove from the map
+                this->pendingCloudsBySensorName.erase(sensorName);
+            }
+
+            {
+                // lock the point cloud mutex
+                std::unique_lock lock(this->cloudMutex);
+
+                // register the point cloud
+                this->mergedCloud.registerPointCloud(newCloud.getPointCloud());
+            }
+
+            // notify the next worker to start
+            this->pendingCloudsCond.notify_one();
+        }
+
     }
 } // pcl_aggregator::managers
