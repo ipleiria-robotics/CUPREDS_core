@@ -27,72 +27,6 @@
 
 namespace pcl_aggregator::managers {
 
-    void memoryMonitoringRoutine(InterSensorManager *instance) {
-
-        while(instance->keepThreadAlive) {
-
-            ssize_t pointsToRemove = 0;
-
-            {
-                std::lock_guard <std::mutex> lock(instance->cloudMutex);
-
-                // get size in MB
-                size_t cloudSize =
-                        instance->mergedCloud.getPointCloud()->points.size() * sizeof(pcl::PointXYZRGBL) / (size_t) 1e6;
-
-                // how many points need to be removed to match the maximum size or less?
-                pointsToRemove = ceil(
-                        (float) (cloudSize - instance->maxMemory) * 1e6 / sizeof(pcl::PointXYZRGBL));
-            }
-
-            if (pointsToRemove > 0) {
-
-                std::cerr << "Exceeded the memory limit: " << pointsToRemove << " points will be removed!" << std::endl;
-
-                auto pointRemoveRoutine = [instance](ssize_t pointsToRemove) {
-                    std::lock_guard<std::mutex> lock(instance->cloudMutex);
-                    // remove the points needed if the number of points exceed the maximum
-                    for (size_t i = 0; i < pointsToRemove; i++)
-                        instance->mergedCloud.getPointCloud()->points.pop_back();
-                };
-
-                // start a thread to remove the points and detach it
-                std::thread removePointCount(pointRemoveRoutine, pointsToRemove);
-                removePointCount.detach();
-            }
-
-            // this thread is repeating at a slow rate to prevent locking too much the mutex
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-        }
-    }
-
-    void streamCloudQuerierRoutine(InterSensorManager* instance, const std::string& topicName) {
-
-        // query the last pointcloud of the IntraSensorManager by the topic name
-        pcl::PointCloud<pcl::PointXYZRGBL> streamCloud = instance->streamManagers[topicName]->getCloud();
-
-        // lock the merged cloud mutex
-        std::unique_lock<std::mutex> lock(instance->cloudMutex);
-
-        // wait for the cloud condition variable
-        instance->cloudConditionVariable.wait(lock, [instance]{return instance->cloudReady;});
-
-        // set cloud as not ready
-        instance->cloudReady = false;
-
-        // register the cloud
-        instance->appendToMerged(streamCloud);
-
-        // set the cloud as ready
-        instance->cloudReady = true;
-
-        // notify the next waiting thread
-        instance->cloudConditionVariable.notify_one();
-
-        //  sleep the thread considering the configured rate
-        std::this_thread::sleep_for(std::chrono::duration<double>(1 / (double) instance->publishRate));
-    }
-
     InterSensorManager::InterSensorManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate):
     mergedCloud("mergedCloud") {
         this->nSources = nSources;
@@ -100,11 +34,6 @@ namespace pcl_aggregator::managers {
         this->maxAge = maxAge;
         this->maxMemory = maxMemory;
         this->publishRate = publishRate;
-
-        // start the memory monitoring thread
-        this->memoryMonitoringThread = std::thread(memoryMonitoringRoutine, this);
-        pthread_setname_np(this->memoryMonitoringThread.native_handle(), "memory_monitoring_thread");
-        this->memoryMonitoringThread.detach();
 
         // create the workers
         this->workersShouldStop = false;
@@ -257,8 +186,14 @@ namespace pcl_aggregator::managers {
 
     void InterSensorManager::removePointsByLabel(const std::set<std::uint32_t>& labels) {
 
-        // remove the points with the label
-        this->mergedCloud.removePointsWithLabels(labels);
+        // lock the point cloud
+        std::lock_guard lock(this->cloudMutex);
+
+        std::thread pointRemovingThread = std::thread([this,labels]() {
+            // remove the points with the label
+            this->mergedCloud.removePointsWithLabels(labels);
+        });
+        pointRemovingThread.detach();
     }
 
     void InterSensorManager::addSensorPointCloud(entities::StampedPointCloud cloud,
@@ -333,12 +268,6 @@ namespace pcl_aggregator::managers {
                                                                std::placeholders::_1, std::placeholders::_2));
 
         this->streamManagers[topicName] = std::move(newStreamManager);
-
-        // start the registration thread which runs at a configured rate
-        std::thread streamRegistrationThread(streamCloudQuerierRoutine, this, topicName);
-
-        // detach the registration thread
-        streamRegistrationThread.detach();
     }
 
     void InterSensorManager::clearMergedCloud() {

@@ -52,6 +52,8 @@
 
 #define NUM_INTRA_SENSOR_WORKERS 2
 
+#define AGE_WATCHER_PERIOD_SECONDS 1
+
 namespace pcl_aggregator::managers {
 
     /*! \brief Manager of a stream of PointClouds.
@@ -135,6 +137,9 @@ namespace pcl_aggregator::managers {
 
             /*! \brief Loop ran by the workers, taking jobs from the queue. Each worker runs this method. */
             void workersLoop();
+
+            /*! \brief Loop ran by the memory watcher. */
+            void memoryWatcherLoop();
 
             /*! \brief Compute the sensor transform. */
             void moveTransformPendingToQueue();

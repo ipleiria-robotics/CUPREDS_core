@@ -29,77 +29,13 @@
 
 namespace pcl_aggregator::managers {
 
-    void maxAgeWatchingRoutine(IntraSensorManager* instance) {
-
-        // lambda function which removes a pointcloud from the merged version
-        auto pointCloudRemovalRoutine = [instance](std::set<std::uint32_t> labels) {
-            instance->removePointClouds(labels);
-        };
-
-        std::set<std::uint32_t> labelsToRemove;
-
-        while(instance->keepAgeWatcherAlive) {
-
-            {
-                // lock access to the pointcloud set
-                std::lock_guard<std::mutex> lock(instance->setMutex);
-
-                for (auto &iter: instance->clouds) {
-
-                    /* the set is ordered by ascending timestamp.
-                     * When we find the first pointcloud which is not older than the max age, we can stop. */
-
-                    // this pointcloud is older than the max age
-                    if (iter->getTimestamp() <= utils::Utils::getMaxTimestampForAge(instance->maxAge)) {
-
-                        // add the label to the set to remove
-                        labelsToRemove.insert(iter->getLabel());
-                    } else {
-                        // the set is ordered by ascending timestamp, so we can stop here
-                        break;
-                    }
-
-                    // TODO: review what happens to the pointer, potential memory leak here
-                }
-            }
-
-
-            // start a detached thread to the pointclouds
-            /*
-             * using a deteched thread instead of sequentially to prevent from having this iteration
-             * going for too long, keeping access to the set constantly locked
-             */
-
-            // remove the points from this merged PointCloud
-            std::thread pointCloudRemovalThread = std::thread(pointCloudRemovalRoutine, labelsToRemove);
-            pthread_setname_np(pointCloudRemovalThread.native_handle(), "pointCloudRemovalThread");
-            pointCloudRemovalThread.detach();
-
-            // the point aging callback was set
-            if(instance->pointAgingCallback != nullptr) {
-                // call a thread to run the callback
-                // if it was done in the same thread, it would delay the routine
-
-                // remove the points from the InterSensorManager's merged pointcloud
-                std::thread callbackThread = std::thread(instance->pointAgingCallback, labelsToRemove);
-                callbackThread.detach();
-            }
-
-            // clear the labels set
-            labelsToRemove.clear();
-
-            // sleep for a second before repeating
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
-    }
-
     IntraSensorManager::IntraSensorManager(const std::string& topicName, double maxAge) {
         this->topicName = topicName;
         this->cloud = std::make_unique<entities::StampedPointCloud>(topicName);
         this->maxAge = maxAge;
 
         // start the age watcher thread
-        this->maxAgeWatcherThread = std::thread(maxAgeWatchingRoutine, this);
+        this->maxAgeWatcherThread = std::thread(&IntraSensorManager::memoryWatcherLoop, this);
         pthread_setname_np(this->maxAgeWatcherThread.native_handle(), "maxAgeWatcherThread");
         this->maxAgeWatcherThread.detach();
 
@@ -275,10 +211,6 @@ namespace pcl_aggregator::managers {
         return this->maxAge;
     }
 
-    std::function<void(std::set<std::uint32_t> labels)> IntraSensorManager::getPointAgingCallback() const {
-        return this->pointAgingCallback;
-    }
-
     void IntraSensorManager::setPointAgingCallback(const std::function<void(std::set<std::uint32_t>)>& func) {
         this->pointAgingCallback = func;
     }
@@ -347,6 +279,44 @@ namespace pcl_aggregator::managers {
             // after completing the work, tell the next worker to pick a job
             this->cloudsNotRegisteredCond.notify_one();
 
+        }
+    }
+
+    void IntraSensorManager::memoryWatcherLoop() {
+
+        // set of labels with expired timestamps
+        std::set<std::uint32_t> labelsToRemove;
+
+        // while not signaled to stop
+        while(this->keepAgeWatcherAlive) {
+
+            // lock the set
+            std::unique_lock lock(this->setMutex);
+
+            // find point clouds older than the max age
+            // the iterator iterates the set in ascending order
+            for(auto& iter : this->clouds) {
+                if(iter->getTimestamp() <= utils::Utils::getMaxTimestampForAge(this->maxAge))
+                    labelsToRemove.insert(iter->getLabel());
+                else
+                    break;
+            }
+
+            // remove the point clouds
+            this->removePointClouds(labelsToRemove);
+
+            // call the inter-sensor callback
+            if(this->pointAgingCallback != nullptr) {
+                this->pointAgingCallback(labelsToRemove);
+            } else {
+                throw std::runtime_error("Point ageing callback not set!");
+            }
+
+            // clear the labels set
+            labelsToRemove.clear();
+
+            // sleep for the period
+            std::this_thread::sleep_for(std::chrono::seconds(AGE_WATCHER_PERIOD_SECONDS));
         }
     }
 
