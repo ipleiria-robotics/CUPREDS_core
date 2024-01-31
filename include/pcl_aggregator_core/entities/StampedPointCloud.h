@@ -64,8 +64,6 @@ namespace pcl_aggregator::entities {
             /*! \brief Label used to identify each PointCloud, for example on removal */
             std::uint32_t label;
 
-            /*! \brief Mutex to contain access to this PointCloud. */
-            std::mutex cloudMutex;
 
             /*! \brief Generate a label to the PointCloud based on the origin topic name and timestamp. */
             std::uint32_t generateLabel();

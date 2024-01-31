@@ -43,7 +43,6 @@ namespace pcl_aggregator::entities {
 
     StampedPointCloud::~StampedPointCloud() {
 
-        std::lock_guard<std::mutex> lock(cloudMutex);
         // the StampedPointCloud owns its cloud's pointer and should destroy it
         this->cloud.reset();
     }
@@ -64,7 +63,6 @@ namespace pcl_aggregator::entities {
     }
 
     typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& StampedPointCloud::getPointCloud() {
-        std::lock_guard<std::mutex> lock(cloudMutex);
         return cloud;
     }
 
@@ -77,8 +75,6 @@ namespace pcl_aggregator::entities {
     }
 
     void StampedPointCloud::setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr c, bool assignGeneratedLabel) {
-
-        std::lock_guard<std::mutex> lock(cloudMutex);
 
         // free the old pointcloud
         this->cloud.reset();
@@ -113,8 +109,6 @@ namespace pcl_aggregator::entities {
 
     void StampedPointCloud::applyTransform(const Eigen::Affine3d& tf) {
 
-        std::lock_guard<std::mutex> lock(cloudMutex);
-
         if(this->cloud != nullptr) {
 
             // call a CUDA thread to transform the pointcloud in-place
@@ -129,8 +123,6 @@ namespace pcl_aggregator::entities {
 
     void StampedPointCloud::removePointsWithLabel(std::uint32_t label) {
 
-        std::lock_guard<std::mutex> lock(this->cloudMutex);
-
         auto it = this->cloud->begin();
         while (it != this->cloud->end()) {
             if (it->label == label)
@@ -141,8 +133,6 @@ namespace pcl_aggregator::entities {
     }
 
     void StampedPointCloud::removePointsWithLabels(const std::set<std::uint32_t> &labels) {
-
-        std::lock_guard<std::mutex> lock(this->cloudMutex);
 
         auto it = this->cloud->begin();
         while (it != this->cloud->end()) {
@@ -155,8 +145,6 @@ namespace pcl_aggregator::entities {
     }
 
     void StampedPointCloud::downsample(float leafSize) {
-
-        std::lock_guard<std::mutex> lock(this->cloudMutex);
 
         pcl::VoxelGrid<pcl::PointXYZRGBL> voxelGrid;
         voxelGrid.setInputCloud(this->cloud);
