@@ -33,7 +33,7 @@
 #include <thread>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
+#include <pcl_aggregator_core/cuda/CUDAPointClouds.h>
 #include <pcl_aggregator_core/managers/IntraSensorManager.h>
 #include <pcl_aggregator_core/entities/StampedPointCloud.h>
 

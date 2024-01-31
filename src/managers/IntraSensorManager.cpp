@@ -24,7 +24,7 @@
  */
 
 #include <pcl_aggregator_core/managers/IntraSensorManager.h>
-#include "pcl_aggregator_core/cuda/CUDAPointClouds.cuh"
+#include "pcl_aggregator_core/cuda/CUDAPointClouds.h"
 
 
 namespace pcl_aggregator::managers {

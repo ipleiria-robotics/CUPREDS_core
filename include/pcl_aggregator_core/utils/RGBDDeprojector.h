@@ -30,7 +30,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <opencv2/opencv.hpp>
-#include <pcl_aggregator_core/cuda/CUDAPointClouds.cuh>
+#include <pcl_aggregator_core/cuda/CUDAPointClouds.h>
 
 namespace pcl_aggregator {
     namespace utils {
