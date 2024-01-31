@@ -246,12 +246,6 @@ namespace pcl_aggregator::managers {
             // create the unique_lock
             std::unique_lock lock(this->cloudMutex);
 
-            // wait for cloudReady to be "true" and to be notified
-            // if the producer is not currently working, this would wait indefinitely without returning any point cloud
-            // hence using "wait_for": to unblock execution in that situation
-            this->cloudConditionVariable.wait_for(lock, std::chrono::milliseconds(CONSUMER_TIMEOUT_MS),
-                                                  [this] { return this->cloudReady; });
-
             // assign the value to the variable
             result = *this->cloud->getPointCloud();
         }
@@ -325,11 +319,18 @@ namespace pcl_aggregator::managers {
             // apply the sensor transform to the new point cloud
             cloudToRegister->applyTransform(this->sensorTransform);
 
-            // register the point cloud
-            this->cloud->registerPointCloud(cloudToRegister->getPointCloud());
+            entities::StampedPointCloud spcl(POINTCLOUD_ORIGIN_NONE);
 
-            // get the point cloud
-            entities::StampedPointCloud spcl = *this->cloud;
+            {
+                // lock the cloud mutex
+                std::unique_lock lock(this->cloudMutex);
+
+                // register the point cloud
+                this->cloud->registerPointCloud(cloudToRegister->getPointCloud());
+
+                // get the point cloud
+                spcl = *this->cloud;
+            }
 
             // add the point cloud to the set
             {
