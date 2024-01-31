@@ -101,9 +101,12 @@ namespace pcl_aggregator::managers {
         // start the age watcher thread
         this->maxAgeWatcherThread = std::thread(maxAgeWatchingRoutine, this);
         pthread_setname_np(this->maxAgeWatcherThread.native_handle(), "maxAgeWatcherThread");
-
-        // this thread can detach from the main thread
         this->maxAgeWatcherThread.detach();
+
+        // start the workers
+        for(size_t i = 0; i < NUM_INTRA_SENSOR_WORKERS; i++) {
+            this->workers.emplace_back(&IntraSensorManager::workersLoop, this);
+        }
     }
 
     IntraSensorManager::~IntraSensorManager() {
@@ -121,23 +124,25 @@ namespace pcl_aggregator::managers {
         while(!this->cloudsNotTransformed.empty()) {
             this->cloudsNotTransformed.pop();
         }
+
+        // signal registration workers to stop
+        this->workersShouldStop = true;
+        this->cloudsNotRegisteredCond.notify_all();
     }
 
     bool IntraSensorManager::operator==(const IntraSensorManager &other) const {
         return this->topicName == other.topicName;
     }
 
-    void IntraSensorManager::computeTransform() {
+    void IntraSensorManager::moveTransformPendingToQueue() {
+        std::lock_guard<std::mutex> lock(this->cloudQueueMutex);
+
         while(!this->cloudsNotTransformed.empty()) {
 
-            // get the first element
-            std::shared_ptr<entities::StampedPointCloud> spcl = this->cloudsNotTransformed.front();
-            spcl->applyTransform(this->sensorTransform);
+            // add the point cloud to the job queue
+            this->cloudsNotRegistered.push_front(std::move(this->cloudsNotTransformed.front()));
 
-            // add to the set
-            this->clouds.insert(std::move(spcl));
-
-            // remove from the queue
+            // remove from the transform queue
             this->cloudsNotTransformed.pop();
         }
     }
@@ -156,11 +161,10 @@ namespace pcl_aggregator::managers {
         std::lock_guard<std::mutex> guard(this->setMutex);
 
         // iterate the set
-        for(auto c : this->clouds) {
+        for(auto& c : this->clouds) {
             if(c->getLabel() == label) {
                 // remove the pointcloud from the set
                 this->clouds.erase(c);
-                c.reset();
                 break;
             }
         }
@@ -181,12 +185,10 @@ namespace pcl_aggregator::managers {
         std::lock_guard<std::mutex> guard(this->setMutex);
 
         // iterate the set
-        for(auto c : this->clouds) {
+        for(auto& c : this->clouds) {
             if(labels.find(c->getLabel()) != labels.end()) {
                 // remove the pointcloud from the set
                 this->clouds.erase(c);
-                // free the pointcloud pointer
-                c.reset();
             }
         }
 
@@ -207,6 +209,7 @@ namespace pcl_aggregator::managers {
         // the new pointcloud is moved to the StampedPointCloud
         spcl->setPointCloud(std::move(newCloud));
 
+        // if the transform is not set, add to the queue of clouds waiting for transform
         if(!this->sensorTransformSet) {
             // add the pointcloud to the queue
             // the ownership is moved to the queue
@@ -214,84 +217,24 @@ namespace pcl_aggregator::managers {
             std::lock_guard<std::mutex> lock(this->cloudQueueMutex);
             this->cloudsNotTransformed.push(std::move(spcl));
             return;
-        }
+        } else {
+            // if the transform is set, add to the queue of clouds waiting to be processed by the workers
 
-        // transform the incoming pointcloud and add directly to the set
+            // lock the mutex
+            std::lock_guard<std::mutex> lock(this->cloudsNotRegisteredMutex);
 
-        // start a thread to transform the pointcloud
-        auto transformRoutine = [this] (const std::unique_ptr<entities::StampedPointCloud>& spcl, const Eigen::Affine3d& tf) {
-            applyTransformRoutine(this, spcl, tf);
-        };
-
-        /*
-        // pointcloud is passed as a const reference: ownership is not moved and no copy is made
-        std::thread transformationThread(transformRoutine, std::ref(spcl), sensorTransform);
-
-        // wait for the thread
-        transformationThread.join();*/
-
-        transformRoutine(std::ref(spcl), sensorTransform);
-
-        try {
-            if(!spcl->getPointCloud()->empty()) {
-
-                {
-                    // lock the pointcloud mutex
-                    std::unique_lock<std::mutex> lock(this->cloudMutex);
-
-                    // set that the pointcloud is being registered
-                    this->cloudReady = false;
-
-                    if (!this->cloud->getPointCloud()->empty()) {
-
-                        pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
-
-                        // align with the most recent point cloud in the origin of the frame (robot-centric)
-                        icp.setInputSource(this->cloud->getPointCloud());
-                        icp.setInputTarget(spcl->getPointCloud());
-
-                        icp.setMaxCorrespondenceDistance(STREAM_ICP_MAX_CORRESPONDENCE_DISTANCE);
-                        icp.setMaximumIterations(STREAM_ICP_MAX_ITERATIONS);
-
-                        icp.align(*this->cloud->getPointCloud());
-                    }
-
-                    if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud->getPointCloud(),
-                                                                      *(spcl->getPointCloud())) < 0) {
-                        std::cerr << "Could not concatenate the pointclouds at the IntraSensorManager!" << std::endl;
-                    }
-
-                    // downsample the new merged pointcloud
-                    this->cloud->downsample(STREAM_DOWNSAMPLING_LEAF_SIZE);
-
-                    // set the registration as finished
-                    this->cloudReady = true;
-                }
-
-                // by this time, the mutex is out of scope, thus fred
-
-                // notify the waiting threads after releasing the mutex
-                this->cloudConditionVariable.notify_one();
-
-                // the points are no longer needed
-                spcl->getPointCloud()->clear();
-
-                /*
-                if(this->pointCloudReadyCallback != nullptr) {
-
-                    std::lock_guard<std::mutex> cloudGuard1(this->cloudMutex);
-
-                    // call the callback on a new thread
-                    std::thread pointCloudCallbackThread = std::thread([this]() {
-                        this->pointCloudReadyCallback(std::ref(this->cloud->getPointCloud()),std::ref(this->cloudMutex));
-                    });
-                    pointCloudCallbackThread.detach();
-                }*/
+            // if the queue is full, remove the oldest pointcloud
+            // this producer doesn't wait for space, it just discards the oldest
+            if(this->cloudsNotRegistered.size() == UNPROCESSED_CLOUD_MAX_QUEUE_LEN) {
+                this->cloudsNotRegistered.pop_back();
             }
 
-        } catch (std::exception &e) {
-            std::cerr << "Error performing sensor-wise ICP: " << e.what() << std::endl;
+            // add the new pointcloud to the queue
+            this->cloudsNotRegistered.push_front(std::move(spcl));
         }
+
+        // notify a worker that a new pointcloud is available
+        this->cloudsNotRegisteredCond.notify_one();
 
     }
 
@@ -322,22 +265,20 @@ namespace pcl_aggregator::managers {
 
     void IntraSensorManager::setSensorTransform(const Eigen::Affine3d &transform) {
 
-        std::lock_guard<std::mutex> lock(this->sensorTransformMutex);
+        {
+            std::lock_guard<std::mutex> lock(this->sensorTransformMutex);
 
-        // set the new transform
-        this->sensorTransform = transform;
-        this->sensorTransformSet = true;
-        this->computeTransform();
+            // set the new transform
+            this->sensorTransform = transform;
+            this->sensorTransformSet = true;
+        }
+
+        // move the point clouds pending transform to the workers queue
+        this->moveTransformPendingToQueue();
     }
 
     double IntraSensorManager::getMaxAge() const {
         return this->maxAge;
-    }
-
-    void applyTransformRoutine(IntraSensorManager *instance,
-                               const std::unique_ptr<entities::StampedPointCloud>& spcl,
-                               const Eigen::Affine3d& tf) {
-        spcl->applyTransform(tf);
     }
 
     std::function<void(std::set<std::uint32_t> labels)> IntraSensorManager::getPointAgingCallback() const {
@@ -356,6 +297,47 @@ namespace pcl_aggregator::managers {
     void IntraSensorManager::setPointCloudReadyCallback(
             const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr &, std::mutex&)> &func) {
         this->pointCloudReadyCallback = func;
+    }
+
+    void IntraSensorManager::workersLoop() {
+
+        std::unique_ptr<entities::StampedPointCloud> cloudToRegister;
+
+        while(true) {
+
+            {
+                // acquire the queue mutex
+                std::unique_lock lock(this->cloudsNotRegisteredMutex);
+
+                // wait for a job to be available / stop if signaled
+                this->cloudsNotRegisteredCond.wait(lock, [this]() {
+                    return this->cloudsNotRegistered.size() > 0 || this->workersShouldStop;
+                });
+                // if the workers should stop, do it
+                if (this->workersShouldStop)
+                    return;
+
+                // pick a pointcloud from the queue. move its ownership to this worker
+                cloudToRegister = std::move(this->cloudsNotRegistered.front());
+                this->cloudsNotRegistered.pop_front();
+            }
+
+            // apply the sensor transform to the new point cloud
+            cloudToRegister->applyTransform(this->sensorTransform);
+
+            // register the point cloud
+            this->cloud->registerPointCloud(cloudToRegister->getPointCloud());
+
+            // add the point cloud to the set
+            {
+                std::unique_lock lock(this->setMutex);
+                this->clouds.insert(std::move(cloudToRegister));
+            }
+
+            // after completing the work, tell the next worker to pick a job
+            this->cloudsNotRegisteredCond.notify_one();
+
+        }
     }
 
 } // pcl_aggregator::managers

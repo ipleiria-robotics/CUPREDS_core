@@ -48,6 +48,10 @@
 
 #define CONSUMER_TIMEOUT_MS 100
 
+#define UNPROCESSED_CLOUD_MAX_QUEUE_LEN 10
+
+#define NUM_INTRA_SENSOR_WORKERS 2
+
 namespace pcl_aggregator::managers {
 
     /*! \brief Manager of a stream of PointClouds.
@@ -69,10 +73,27 @@ namespace pcl_aggregator::managers {
             bool sensorTransformSet = false;
 
             /*! \brief A set containing the PointClouds managed by this class ordered and identified by timestamp. */
-            std::set<std::shared_ptr<entities::StampedPointCloud>,
+            std::set<std::unique_ptr<entities::StampedPointCloud>,
                 entities::CompareStampedPointCloudPointers> clouds;
+
             /*! \brief Queue of PointClouds waiting for the transform to be set. */
-            std::queue<std::shared_ptr<entities::StampedPointCloud>> cloudsNotTransformed;
+            std::queue<std::unique_ptr<entities::StampedPointCloud>> cloudsNotTransformed;
+
+            /*! \brief Queue of PointClouds to be processed and registered by the workers. */
+            std::deque<std::unique_ptr<entities::StampedPointCloud>> cloudsNotRegistered;
+
+            /*! \brief Vector of workers which process incoming point clouds. */
+            std::vector<std::thread> workers;
+
+            /*! \brief Flag used to signal workers to stop. */
+            bool workersShouldStop = false;
+
+            /*! \brief Mutex to clouds not processed. */
+            std::mutex cloudsNotRegisteredMutex;
+
+            /*! \brief Condition variable to clouds not processed. */
+            std::condition_variable cloudsNotRegisteredCond;
+
             /*! \brief Maximum age points live for. After this time they will be removed. */
             double maxAge;
 
@@ -112,8 +133,11 @@ namespace pcl_aggregator::managers {
             std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::mutex& cloudMutex)>
                     pointCloudReadyCallback = nullptr;
 
+            /*! \brief Loop ran by the workers, taking jobs from the queue. Each worker runs this method. */
+            void workersLoop();
+
             /*! \brief Compute the sensor transform. */
-            void computeTransform();
+            void moveTransformPendingToQueue();
 
             void removePointCloud(std::uint32_t label);
 
@@ -178,18 +202,6 @@ namespace pcl_aggregator::managers {
             void setPointCloudReadyCallback(const std::function<void(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud,
                     std::mutex& cloudMutex)>& func);
 
-
-        /*!
-         * \brief PointCloud transform routine.
-         * Method intended to be called from a thread to transform the StampedPointCloud of a IntraSensorManager in detached state.
-         *
-         * @param instance The IntraSensorManager instance pointer in which this PointCloud exists.
-         * @param spcl The PointCloud shared pointer to transform.
-         * @param tf The transform to apply in form of an affine transformation.
-         */
-        friend void applyTransformRoutine(IntraSensorManager* instance,
-                                          const std::unique_ptr<entities::StampedPointCloud>& spcl,
-                                          const Eigen::Affine3d& tf);
 
         /*! \brief Max age watching routine.
          *
