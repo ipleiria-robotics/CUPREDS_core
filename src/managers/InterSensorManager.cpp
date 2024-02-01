@@ -27,35 +27,17 @@
 
 namespace pcl_aggregator::managers {
 
-    InterSensorManager::InterSensorManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate):
+    InterSensorManager::InterSensorManager(size_t nSources, double maxAge):
     mergedCloud("mergedCloud") {
         this->nSources = nSources;
 
         this->maxAge = maxAge;
-        this->maxMemory = maxMemory;
-        this->publishRate = publishRate;
 
         // create the workers
         this->workersShouldStop = false;
         for(size_t i = 0; i < NUM_INTER_SENSOR_WORKERS; i++) {
             this->workers.emplace_back(&InterSensorManager::workersLoop, this);
         }
-    }
-
-    InterSensorManager::~InterSensorManager() {
-
-        // free all the stream managers
-        for(auto & streamManager : this->streamManagers) {
-            streamManager.second.reset();
-        }
-
-        // wait for the memory monitoring thread
-        this->keepThreadAlive = false;
-        this->memoryMonitoringThread.join();
-
-        // signal all workers to stop
-        this->workersShouldStop = true;
-        this->pendingCloudsCond.notify_all();
     }
 
     size_t InterSensorManager::getNClouds() const {
@@ -225,14 +207,23 @@ namespace pcl_aggregator::managers {
         this->mergedCloud.getPointCloud()->clear();
     }
 
-    InterSensorManager &InterSensorManager::get(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate) {
+    InterSensorManager &InterSensorManager::get(size_t nSources, double maxAge) {
         if(instance == nullptr)
-            instance = new InterSensorManager(nSources, maxAge, maxMemory, publishRate);
+            instance = new InterSensorManager(nSources, maxAge);
         return *instance;
     }
 
     void InterSensorManager::destruct() {
         if(instance != nullptr) {
+            // free all the stream managers
+            for(auto & streamManager : instance->streamManagers) {
+                streamManager.second.reset();
+            }
+
+            // signal all workers to stop
+            instance->workersShouldStop = true;
+            instance->pendingCloudsCond.notify_all();
+
             delete instance;
             instance = nullptr;
         }

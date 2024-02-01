@@ -65,16 +65,16 @@ namespace pcl_aggregator::managers {
         private:
             /*! \brief Singleton class instance. */
             static InterSensorManager* instance;
+
             /*! \brief The number of sensors being currently managed. */
             size_t nSources;
+
             /*! \brief The configured maximum point age. */
             double maxAge;
-            /*! \brief Configured max memory to be consumed by a PointCloud in MB. */
-            size_t maxMemory;
-            /*! \brief Configured publish rate and registration rate. */
-            size_t publishRate;
+
             /*! \brief Hash map of managers, one for each sensor (topic). */
             std::unordered_map<std::string,std::unique_ptr<IntraSensorManager>> streamManagers;
+
             /*! \brief Smart pointer to the merged PointCloud. */
             entities::StampedPointCloud mergedCloud;
 
@@ -90,12 +90,7 @@ namespace pcl_aggregator::managers {
             /*! \brief Is the merged PointCloud ready to be accessed. */
             bool cloudReady = true;
 
-            /*! \brief Thread which monitors the PointCloud's memory usage. */
-            std::thread memoryMonitoringThread;
-
-            /*!\brief Flag to determine if the thread should be stopped or not. */
-            bool keepThreadAlive = true;
-
+            /*! \breif The vector of inter-sensor workers doing sensor registration. */
             std::vector<std::thread> workers;
 
             /*! \brief Flag to signal workers to stop. */
@@ -121,12 +116,8 @@ namespace pcl_aggregator::managers {
              * @param nSources Number of sensors to manage.
              * @param maxAge Maximum age for each point from the moment it is captured.
              * @param maxMemory Memory hard-limit for point clouds.
-             * @param publishRate Point cloud publish rate in Hz.
              */
-            InterSensorManager(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate);
-
-            /*! \brief InterSensorManager destructor. Destroys the IntraSensorManager instances. */
-            ~InterSensorManager();
+            InterSensorManager(size_t nSources, double maxAge);
 
             /*! \brief Clear the points of the merged PointCloud. */
             void clearMergedCloud();
@@ -155,7 +146,7 @@ namespace pcl_aggregator::managers {
         public:
 
             /*! \brief Singleton instance getter. */
-            static InterSensorManager& get(size_t nSources, double maxAge, size_t maxMemory, size_t publishRate);
+            static InterSensorManager& get(size_t nSources, double maxAge);
 
             /*! \brief Singleton instance destructor. */
             static void destruct();
@@ -184,21 +175,6 @@ namespace pcl_aggregator::managers {
             pcl::PointCloud<pcl::PointXYZRGBL> getMergedCloud();
 
             void workersLoop();
-
-        /*! \brief Memory monitoring routine.
-         *
-         * When a PointCloud reaches the defined max size, some points are removed. It runs contantly on a thread.
-         *
-         * @param instance Pointer to the InterSensorManager instance.
-         * */
-        friend void memoryMonitoringRoutine(InterSensorManager* instance);
-
-        /*! \brief Routine to query the last pointcloud of a IntraSensorManager and register it.
-         *
-         * \param instance Pointer to the InterSensorManager instance.
-         * \param topicName Name of the IntraSensorManager topic.
-         */
-        friend void streamCloudQuerierRoutine(InterSensorManager* instance, const std::string& topicName);
 
     };
 } // pcl_aggregator::managers
