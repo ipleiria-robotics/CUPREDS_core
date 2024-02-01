@@ -175,11 +175,17 @@ namespace pcl_aggregator::entities {
 
         // if this point cloud is empty, it can just become the new
         if(this->cloud->empty()) {
+            #ifdef USE_CUDA
+            // concatenate using GPU
             if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud,
                                                               reinterpret_cast<const pcl::PointCloud<pcl::PointXYZRGBL> &>(newCloud)) <
                 0) {
                 throw std::runtime_error("Error copying incoming point cloud");
             }
+            #else
+            // concatenate using CPU
+            *this->cloud += *newCloud;
+            #endif
             return;
         }
 
@@ -205,9 +211,15 @@ namespace pcl_aggregator::entities {
         }
 
         // merge the point clouds after registration
+        #ifdef USE_CUDA
+        // concatenate using GPU
         if(cuda::pointclouds::concatenatePointCloudsCuda(this->cloud, reinterpret_cast<const pcl::PointCloud<pcl::PointXYZRGBL> &>(newCloud)) < 0) {
             throw std::runtime_error("Error concatenating point clouds after registration");
         }
+        #else
+        // concatenate using CPU
+        *this->cloud += *newCloud;
+        #endif
 
         this->downsample(ICP_DOWNSAMPLE_SIZE);
     }

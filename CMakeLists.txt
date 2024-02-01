@@ -24,6 +24,7 @@ if(USE_CUDA)
     message(STATUS "Compiling with CUDA support")
     set(CUDA_SOURCE_FILES src/cuda/CUDA_RGBD.cu src/cuda/CUDAPointClouds.cu)
     set_source_files_properties(${CUDA_SOURCE_FILES} PROPERTIES LANGUAGE CUDA)
+    add_compile_definitions(USE_CUDA)
     # append cuda source files
     set(SOURCE FILES "${SOURCE_FILES} ${CUDA_SOURCE_FILES}")
 endif()
