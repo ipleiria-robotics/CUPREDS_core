@@ -297,6 +297,30 @@ namespace pcl_aggregator::managers {
                 this->clouds.insert(std::move(cloudToRegister));
             }
 
+            // measure the time difference between capture and now
+            auto now = utils::Utils::getCurrentTimeMillis();
+            unsigned long long diff = now - cloudToRegister->getTimestamp();
+
+            {
+                // acquire the mutex
+                std::unique_lock lock(this->statisticsMutex);
+
+                // wait for the condition variable
+                this->statisticsCond.wait(lock);
+
+                // contribute to the average and variance
+                double delta = (double) diff - this->avgRegistrationTimeMs;
+
+                this->avgRegistrationTimeMs =
+                        this->avgRegistrationTimeMs + delta / (double) this->registrationTimeSampleCount;
+                if (this->registrationTimeSampleCount >= 2)
+                    this->varRegistrationTimeMs =
+                            this->varRegistrationTimeMs + delta * ((double) diff - this->avgRegistrationTimeMs);
+            }
+
+            // notify the next waiting for statistics
+            this->statisticsCond.notify_one();
+
             // call the InterSensorManager-defined callback
             // ATTENTION: on the InterSensorManager side this should be non-blocking, e.g., by adding to a queue of work
             this->pointCloudReadyCallback(spcl, this->topicName);
