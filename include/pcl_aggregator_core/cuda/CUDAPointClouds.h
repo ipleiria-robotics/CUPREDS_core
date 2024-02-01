@@ -42,7 +42,7 @@ namespace pcl_aggregator {
              *
              * @returns Zero on success, a negative number on error.
              * */
-            static __host__ int setPointCloudLabelCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label);
+            __host__ int setPointCloudLabelCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label);
 
             /*! \brief Transform all the points of a PointCloud using an affine transformation.
              *
@@ -50,7 +50,7 @@ namespace pcl_aggregator {
              *
              * @returns Zero on success, a negative number on error.
              */
-            static __host__ int transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const Eigen::Affine3d& transform);
+            __host__ int transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const Eigen::Affine3d& transform);
 
             /*! \brief Concatenate the points of cloud2 into cloud1.
              *
@@ -59,7 +59,7 @@ namespace pcl_aggregator {
              *
              * @returns Zero on success, a negative number on error.
              */
-            static __host__ int concatenatePointCloudsCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud1,
+            __host__ int concatenatePointCloudsCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud1,
                                                      const pcl::PointCloud<pcl::PointXYZRGBL>& cloud2);
 
             /*! \brief The kernel which sets the label on an individual point.
@@ -70,7 +70,7 @@ namespace pcl_aggregator {
              *
              * @returns Zero on success, a negative number on error.
              */
-            static __global__ void setPointLabelKernel(pcl::PointXYZRGBL *points, std::uint32_t label, int num_points);
+            __global__ void setPointLabelKernel(pcl::PointXYZRGBL *points, std::uint32_t label, int num_points);
 
             /*! \brief The kernel which transforms a given point.
              *
@@ -80,7 +80,7 @@ namespace pcl_aggregator {
              *
              * @returns Zero on success, a negative number on error.
              */
-            static __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4d transform, int num_points);
+            __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4d transform, int num_points);
 
             /*! \brief The kernel which concatenates a point on cloud2 to cloud1.
              *
@@ -91,7 +91,7 @@ namespace pcl_aggregator {
              *
              * @returns Zero on success, a negative number on error.
              */
-            static __global__ void concatenatePointCloudsKernel(pcl::PointXYZRGBL* cloud1, std::size_t cloud1_original_size,
+            __global__ void concatenatePointCloudsKernel(pcl::PointXYZRGBL* cloud1, std::size_t cloud1_original_size,
                                                          pcl::PointXYZRGBL* cloud2, std::size_t cloud2_size);
 
         }
