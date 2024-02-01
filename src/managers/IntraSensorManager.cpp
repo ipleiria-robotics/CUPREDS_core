@@ -306,7 +306,7 @@ namespace pcl_aggregator::managers {
                 std::unique_lock lock(this->statisticsMutex);
 
                 // wait for the condition variable
-                this->statisticsCond.wait(lock);
+                this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
 
                 // contribute to the average and variance
                 double delta = (double) diff - this->avgRegistrationTimeMs;
@@ -371,6 +371,63 @@ namespace pcl_aggregator::managers {
             // sleep for the period
             std::this_thread::sleep_for(std::chrono::seconds(AGE_WATCHER_PERIOD_SECONDS));
         }
+    }
+
+    double IntraSensorManager::getAverageRegistrationTime() {
+        double val;
+
+        {
+            // acquire mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = this->avgRegistrationTimeMs;
+        }
+
+        // notify next thread
+        this->statisticsCond.notify_one();
+
+        return val;
+    }
+
+    double IntraSensorManager::getVarianceRegistrationTime() {
+        double val;
+
+        {
+            // acquire mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = this->varRegistrationTimeMs;
+        }
+
+        // notify next thread
+        this->statisticsCond.notify_one();
+
+        return val;
+    }
+
+    size_t IntraSensorManager::getSampleCount() {
+        size_t val;
+
+        {
+            // acquire mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = this->registrationTimeSampleCount;
+        }
+
+        // notify next thread
+        this->statisticsCond.notify_one();
+
+        return val;
     }
 
 } // pcl_aggregator::managers
