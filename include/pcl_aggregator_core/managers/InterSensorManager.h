@@ -146,7 +146,7 @@ namespace pcl_aggregator::managers {
         public:
 
             /*! \brief Singleton instance getter. */
-            static InterSensorManager& get(size_t nSources, double maxAge);
+            static InterSensorManager& getInstance(size_t nSources, double maxAge);
 
             /*! \brief Singleton instance destructor. */
             static void destruct();

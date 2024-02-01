@@ -195,7 +195,7 @@ namespace pcl_aggregator::managers {
         this->mergedCloud.getPointCloud()->clear();
     }
 
-    InterSensorManager &InterSensorManager::get(size_t nSources, double maxAge) {
+    InterSensorManager& InterSensorManager::getInstance(size_t nSources, double maxAge) {
         if(instance == nullptr)
             instance = new InterSensorManager(nSources, maxAge);
         return *instance;
