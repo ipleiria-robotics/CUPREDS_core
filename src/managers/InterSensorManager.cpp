@@ -68,35 +68,23 @@ namespace pcl_aggregator::managers {
     }
 
     pcl::PointCloud<pcl::PointXYZRGBL> InterSensorManager::getMergedCloud() {
-        /*
-        // clear the old merged cloud
-        this->clearMergedCloud();
 
-        bool firstCloud = true;
-         */
+        pcl::PointCloud<pcl::PointXYZRGBL> tmp;
 
-        // iterate the map
-        /*
-        this->managersMutex.lock();
-        for(auto & streamManager : this->streamManagers) {
-            if(firstCloud) {
-                this->cloudMutex.lock();
-                *this->mergedCloud.getPointCloud() = *streamManager.second->getCloud();
-                this->cloudMutex.unlock();
-                firstCloud = false;
-            } else {
-                this->appendToMerged(streamManager.second->getCloud());
-            }
+        {
+            // wait for the mutex
+            std::unique_lock<std::mutex> lock(this->cloudMutex);
+
+            // wait for the condition variable
+            this->cloudConditionVariable.wait(lock, [this] { return this->cloudReady; });
+
+            tmp = *(this->mergedCloud.getPointCloud());
         }
-        this->managersMutex.unlock();*/
 
-        // wait for the mutex
-        std::unique_lock<std::mutex> lock(this->cloudMutex);
+        // notify the next thread in queue to continue
+        this->cloudConditionVariable.notify_one();
 
-        // wait for the condition variable
-        this->cloudConditionVariable.wait(lock, [this]{return this->cloudReady;});
-
-        return *(this->mergedCloud.getPointCloud());
+        return tmp;
     }
 
     void InterSensorManager::removePointsByLabel(const std::set<std::uint32_t>& labels) {
