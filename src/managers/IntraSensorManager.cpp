@@ -268,6 +268,9 @@ namespace pcl_aggregator::managers {
 
             entities::StampedPointCloud spcl(POINTCLOUD_ORIGIN_NONE);
 
+            // assign the timestamp of the incoming point cloud to this new
+            spcl.setTimestamp(cloudToRegister->getTimestamp());
+
             {
                 // lock the cloud mutex
                 std::unique_lock lock(this->cloudMutex);
@@ -310,6 +313,7 @@ namespace pcl_aggregator::managers {
 
                 // contribute to the average and variance
                 double delta = (double) diff - this->avgRegistrationTimeMs;
+                (this->registrationTimeSampleCount)++;
 
                 this->avgRegistrationTimeMs =
                         this->avgRegistrationTimeMs + delta / (double) this->registrationTimeSampleCount;

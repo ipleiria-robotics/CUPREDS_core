@@ -111,6 +111,21 @@ namespace pcl_aggregator::managers {
             /*! \brief Condition variable to constrol access to the queue and map of pending point clouds. */
             std::condition_variable pendingCloudsCond;
 
+            /*! \brief Mutex controlling access to the statistics variables. */
+            std::mutex statisticsMutex;
+
+            /*! \brief Condition variable controlling access to the statistics variables. */
+            std::condition_variable statisticsCond;
+
+            /*! \brief Average time elapsed since a point cloud is received and is ready to be returned, after processing. */
+            double avgRegistrationTimeMs = 0.0f;
+
+            /*! \brief Variance of the time elapsed between a point cloud is received and is ready to be returned, after processing. */
+            double varRegistrationTimeMs = 0.0f;
+
+            /*! \brief Number of samples contributing to the registration time statistics. */
+            size_t registrationTimeSampleCount = 0;
+
             /*! \brief InterSensorManager constructor.
              *
              * @param nSources Number of sensors to manage.
@@ -173,6 +188,17 @@ namespace pcl_aggregator::managers {
             void setTransform(const Eigen::Affine3d& transform, const std::string& topicName);
 
             pcl::PointCloud<pcl::PointXYZRGBL> getMergedCloud();
+
+            /*! \brief Get the average time elapsed between point cloud arrival and delivery. */
+            double getAverageRegistrationTime();
+
+            /*! \brief Get the variance of the time elapsed between point cloud arrival and delivery. */
+            double getVarianceRegistrationTime();
+
+            /*! \brief Get the number of point clouds already processed.
+             * This is also the number of point clouds already contributed to the average and variance of registration time.
+             */
+            size_t getSampleCount();
 
             void workersLoop();
 

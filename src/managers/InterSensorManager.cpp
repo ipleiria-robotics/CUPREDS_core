@@ -219,6 +219,63 @@ namespace pcl_aggregator::managers {
         }
     }
 
+    double InterSensorManager::getAverageRegistrationTime() {
+        double val;
+
+        {
+            // acquire the mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for the condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = this->avgRegistrationTimeMs;
+        }
+
+        // notify the next thread
+        this->statisticsCond.notify_one();
+
+        return val;
+    }
+
+    double InterSensorManager::getVarianceRegistrationTime() {
+        double val;
+
+        {
+            // acquire the mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for the condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = this->varRegistrationTimeMs;
+        }
+
+        // notify the next thread
+        this->statisticsCond.notify_one();
+
+        return val;
+    }
+
+    size_t InterSensorManager::getSampleCount() {
+        size_t val;
+
+        {
+            // acquire the mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for the condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = this->registrationTimeSampleCount;
+        }
+
+        // notify the next thread
+        this->pendingCloudsCond.notify_one();
+
+        return val;
+    }
+
     void InterSensorManager::workersLoop() {
 
         while(true) {
@@ -263,6 +320,30 @@ namespace pcl_aggregator::managers {
 
                 this->cloudReady = true;
             }
+
+            // update the statistics
+            auto now = utils::Utils::getCurrentTimeMillis();
+            unsigned long long diff = now - newCloud.getTimestamp();
+            {
+                // acquire the mutex
+                std::unique_lock lock(this->statisticsMutex);
+
+                // wait for the statistics condition variable
+                this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+                // update the statistics
+                double delta = (double) diff - this->avgRegistrationTimeMs;
+                (this->registrationTimeSampleCount)++;
+
+                this->avgRegistrationTimeMs =
+                        this->avgRegistrationTimeMs + delta / (double) this->registrationTimeSampleCount;
+                if(this->registrationTimeSampleCount >= 2)
+                    this->varRegistrationTimeMs =
+                            this->varRegistrationTimeMs + delta * ((double) diff - this->avgRegistrationTimeMs);
+            }
+
+            // notify the next thread waiting for statistics
+            this->statisticsCond.notify_one();
 
             this->cloudConditionVariable.notify_one();
 

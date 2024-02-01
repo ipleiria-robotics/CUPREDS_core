@@ -75,6 +75,9 @@ namespace pcl_aggregator::entities {
             /*! \brief Get the PointCloud timestamp. */
             unsigned long long getTimestamp() const;
 
+            /*! \brief Assign a new timestamp to the PointCloud. */
+            void setTimestamp(unsigned long long timestamp);
+
             /*! \brief Get a smart pointer to the PointCloud. */
             typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& getPointCloud();
 

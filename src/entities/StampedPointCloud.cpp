@@ -62,6 +62,13 @@ namespace pcl_aggregator::entities {
         return this->timestamp;
     }
 
+    void StampedPointCloud::setTimestamp(unsigned long long timestamp) {
+        this->timestamp = timestamp;
+
+        // re-generate the label
+        this->label = this->generateLabel();
+    }
+
     typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& StampedPointCloud::getPointCloud() {
         return cloud;
     }
