@@ -26,7 +26,7 @@ if(USE_CUDA)
     set_source_files_properties(${CUDA_SOURCE_FILES} PROPERTIES LANGUAGE CUDA)
     add_compile_definitions(USE_CUDA)
     # append cuda source files
-    set(SOURCE FILES "${SOURCE_FILES} ${CUDA_SOURCE_FILES}")
+    set(SOURCE_FILES ${SOURCE_FILES} ${CUDA_SOURCE_FILES})
 endif()
 
 set(PUBLIC_HEADERS include/pcl_aggregator_core)

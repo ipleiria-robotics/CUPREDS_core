@@ -67,8 +67,7 @@ namespace pcl_aggregator {
              * @param nValidPoints Pointer shared among threads. Each threads knows how many points have been inserted, thus inserting the next one immediately after.
              */
             __global__ void deprojectImagesKernel(unsigned char *colorImage, unsigned char *depthImage, unsigned int width,
-                                                  unsigned int height, const Eigen::Matrix3d& K_inv,
-                                                  double minDepth, double maxDepth, pcl::PointXYZRGBL *pointArray,
+                                                  unsigned int height, const Eigen::Matrix3d& K, pcl::PointXYZRGBL *pointArray,
                                                   unsigned long long *nValidPoints);
         }
     } // pcl_aggregator
