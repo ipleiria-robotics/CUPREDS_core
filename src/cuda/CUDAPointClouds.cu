@@ -29,7 +29,7 @@ namespace pcl_aggregator {
     namespace cuda {
         namespace pointclouds {
 
-            __host__ void setPointCloudLabelCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label) {
+            static __host__ int setPointCloudLabelCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label) {
                 cudaError_t err = cudaSuccess;
                 cudaStream_t stream;
 
@@ -38,19 +38,19 @@ namespace pcl_aggregator {
 
                 if((err = cudaSetDevice(0)) != cudaSuccess) {
                     std::cerr << "Error setting the CUDA device: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -1;
                 }
 
                 // create a stream
                 if ((err = cudaStreamCreate(&stream)) != cudaSuccess) {
                     std::cerr << "Error creating the label-setting CUDA stream: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -2;
                 }
 
                 // allocate memory on the device to store the input pointcloud
                 if ((err = cudaMalloc(&d_cloud, cloud->size() * sizeof(pcl::PointXYZRGBL))) != cudaSuccess) {
                     std::cerr << "Error allocating memory for the pointcloud: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -3;
                 }
 
                 // copy the input pointcloud to the device
@@ -58,7 +58,7 @@ namespace pcl_aggregator {
                                       cudaMemcpyHostToDevice)) != cudaSuccess) {
                     std::cerr << "Error copying the input pointcloud to the device (set label): " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -4;
                 }
 
                 // call the kernel
@@ -69,7 +69,7 @@ namespace pcl_aggregator {
                 // wait for the stream
                 if ((err = cudaStreamSynchronize(stream)) != cudaSuccess) {
                     std::cerr << "Error waiting for the label-setting stream: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -5;
                 }
 
                 // copy the output pointcloud back to the host
@@ -77,50 +77,52 @@ namespace pcl_aggregator {
                                       cudaMemcpyDeviceToHost)) != cudaSuccess) {
                     std::cerr << "Error copying the output pointcloud to the host (labelling): " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -6;
                 }
 
                 // free the memory
                 if ((err = cudaFree(d_cloud)) != cudaSuccess) {
                     std::cerr << "Error freeing the pointcloud from device memory: " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -7;
                 }
 
                 // destroy the stream
                 if ((err = cudaStreamDestroy(stream)) != cudaSuccess) {
                     std::cerr << "Error destroying the CUDA stream: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -8;
                 }
+
+                return 0;
             }
 
-            __global__ void setPointLabelKernel(pcl::PointXYZRGBL *points, std::uint32_t label, int num_points) {
+            static __global__ void setPointLabelKernel(pcl::PointXYZRGBL *points, std::uint32_t label, int num_points) {
                 std::size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
                 if (idx < num_points) {
                     points[idx].label = label;
                 }
             }
 
-            __host__ void transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const Eigen::Affine3d& tf) {
+            static __host__ int transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const Eigen::Affine3d& tf) {
 
                 cudaError_t err = cudaSuccess;
                 cudaStream_t stream;
 
                 if((err = cudaSetDevice(0)) != cudaSuccess) {
                     std::cerr << "Error setting the CUDA device: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -1;
                 }
 
                 if ((err = cudaStreamCreate(&stream)) != cudaSuccess) {
                     std::cerr << "Error creating pointcloud transform stream: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -2;
                 }
 
                 // allocate device memory for the pointcloud
                 pcl::PointXYZRGBL *d_cloud;
                 if ((err = cudaMalloc(&d_cloud, cloud->size() * sizeof(pcl::PointXYZRGBL))) != cudaSuccess) {
                     std::cerr << "Error allocating memory for the pointcloud: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -3;
                 }
 
                 // copy the pointcloud to the device
@@ -128,7 +130,7 @@ namespace pcl_aggregator {
                                       cudaMemcpyHostToDevice)) != cudaSuccess) {
                     std::cerr << "Error copying the input pointcloud to the device (transform): " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -4;
                 }
 
                 // call the kernel
@@ -139,7 +141,7 @@ namespace pcl_aggregator {
                 // wait for the stream
                 if ((err = cudaStreamSynchronize(stream)) != cudaSuccess) {
                     std::cerr << "Error waiting for the transform stream: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -5;
                 }
 
                 // copy the output pointcloud back to the host
@@ -147,24 +149,26 @@ namespace pcl_aggregator {
                                       cudaMemcpyDeviceToHost)) != cudaSuccess) {
                     std::cerr << "Error copying the output pointcloud to the host (transform): " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -6;
                 }
 
                 // free the memory
                 if ((err = cudaFree(d_cloud)) != cudaSuccess) {
                     std::cerr << "Error freeing the pointcloud from device memory: " << cudaGetErrorString(err)
                               << std::endl;
-                    return;
+                    return -7;
                 }
 
                 // destroy the stream
                 if ((err = cudaStreamDestroy(stream)) != cudaSuccess) {
                     std::cerr << "Error destroying the CUDA stream: " << cudaGetErrorString(err) << std::endl;
-                    return;
+                    return -8;
                 }
+
+                return 0;
             }
 
-            __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4d transform, int num_points) {
+            static __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4d transform, int num_points) {
                 std::size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
                 if (idx < num_points) {
                     Eigen::Vector4d p(points[idx].x, points[idx].y, points[idx].z, 1.0f);
@@ -175,7 +179,7 @@ namespace pcl_aggregator {
                 }
             }
 
-            __host__ int concatenatePointCloudsCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud1,
+            static __host__ int concatenatePointCloudsCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud1,
                                                      const pcl::PointCloud<pcl::PointXYZRGBL>& cloud2) {
 
                 cudaError_t err = cudaSuccess;
@@ -272,7 +276,7 @@ namespace pcl_aggregator {
 
             }
 
-            __global__ void concatenatePointCloudsKernel(pcl::PointXYZRGBL* cloud1, std::size_t cloud1_original_size,
+            static __global__ void concatenatePointCloudsKernel(pcl::PointXYZRGBL* cloud1, std::size_t cloud1_original_size,
                                                          pcl::PointXYZRGBL* cloud2, std::size_t cloud2_size) {
                 // calculate the index
                 std::size_t idx = blockIdx.x * blockDim.x + threadIdx.x;

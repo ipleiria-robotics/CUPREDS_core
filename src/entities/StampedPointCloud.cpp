@@ -112,7 +112,9 @@ namespace pcl_aggregator::entities {
         if(this->cloud != nullptr) {
 
             // call a CUDA thread to transform the pointcloud in-place
-            cuda::pointclouds::transformPointCloudCuda(this->cloud, tf);
+            if(cuda::pointclouds::transformPointCloudCuda(this->cloud, tf) < 0) {
+                throw std::runtime_error("Error transforming the pointcloud using CUDA");
+            }
         } else {
             std::cerr << "StampedPointCloud::applyTransform: cloud is null!" << std::endl;
         }

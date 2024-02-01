@@ -5,7 +5,7 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
 set(CMAKE_CUDA_ARCHITECTURES 75)
 
-project(pcl_aggregator_core)
+project(pcl_aggregator_core LANGUAGES C CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -14,12 +14,15 @@ find_package(OpenCV REQUIRED) # to process image
 find_package(Eigen3 REQUIRED) # to do linear algebra, i.e. transformations and linear equations
 find_package(CUDA REQUIRED) # to do parallel programming
 
+set(CUDA_SOURCE_FILES src/cuda/CUDA_RGBD.cu src/cuda/CUDAPointClouds.cu)
+set_source_files_properties(${CUDA_SOURCE_FILES} PROPERTIES LANGUAGE CUDA)
+
 set(PUBLIC_HEADERS include/pcl_aggregator_core)
 include_directories(include ${PCL_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
 
 add_library(pcl_aggregator_core SHARED src/utils/Utils.cpp src/entities/StampedPointCloud.cpp
         src/utils/RGBDDeprojector.cpp src/managers/IntraSensorManager.cpp src/managers/InterSensorManager.cpp
-        src/cuda/CUDA_RGBD.cu src/cuda/CUDAPointClouds.cu)
+        ${CUDA_SOURCE_FILES})
 
 target_link_libraries(pcl_aggregator_core ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${Eigen3_LIBRARIES} ${CUDA_LIBRARIES})
 

@@ -27,6 +27,8 @@
 
 namespace pcl_aggregator::managers {
 
+    InterSensorManager* InterSensorManager::instance = nullptr;
+
     InterSensorManager::InterSensorManager(size_t nSources, double maxAge):
     mergedCloud("mergedCloud") {
         this->nSources = nSources;
