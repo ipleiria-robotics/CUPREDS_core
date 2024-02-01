@@ -23,7 +23,7 @@
 
  */
 
-#include <pcl_aggregator_core/cuda/CUDA_RGBD.cuh>
+#include <pcl_aggregator_core/cuda/CUDA_RGBD.h>
 
 namespace pcl_aggregator {
     namespace cuda {

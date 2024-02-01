@@ -17,7 +17,9 @@ find_package(CUDA REQUIRED) # to do parallel programming
 set(PUBLIC_HEADERS include/pcl_aggregator_core)
 include_directories(include ${PCL_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS} ${CUDA_INCLUDE_DIRS})
 
-add_library(pcl_aggregator_core SHARED src/utils/Utils.cpp src/entities/StampedPointCloud.cpp src/utils/RGBDDeprojector.cpp src/cuda/CUDAPointClouds.cu src/managers/IntraSensorManager.cpp src/managers/InterSensorManager.cpp src/cuda/CUDA_RGBD.cu)
+add_library(pcl_aggregator_core SHARED src/utils/Utils.cpp src/entities/StampedPointCloud.cpp
+        src/utils/RGBDDeprojector.cpp src/managers/IntraSensorManager.cpp src/managers/InterSensorManager.cpp
+        src/cuda/CUDA_RGBD.cu src/cuda/CUDAPointClouds.cu)
 
 target_link_libraries(pcl_aggregator_core ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${Eigen3_LIBRARIES} ${CUDA_LIBRARIES})
 
