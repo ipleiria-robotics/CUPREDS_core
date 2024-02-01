@@ -30,6 +30,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/registration/icp.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/common/transforms.h>
 #include <eigen3/Eigen/Dense>
 #include <cstdint>
 #include <set>
