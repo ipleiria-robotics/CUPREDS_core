@@ -100,8 +100,7 @@ namespace pcl_aggregator {
                 dim3 numBlocks(depthImage.rows / threadsPerBlock.x, depthImage.cols / threadsPerBlock.y);
                 deprojectImagesKernel<<<numBlocks, threadsPerBlock, 0, stream>>>(d_colorImage, d_depthImage,
                                                                                  depthImage.cols, depthImage.rows,
-                                                                                 K.inverse(), minDepth, maxDepth,
-                                                                                 d_pointArray, d_nValidPoints);
+                                                                                 K, d_pointArray, d_nValidPoints);
 
                 // wait for the stream to finish all threads
                 if((err = cudaStreamSynchronize(stream)) != cudaSuccess) {
@@ -162,8 +161,7 @@ namespace pcl_aggregator {
             }
 
             __global__ void deprojectImagesKernel(unsigned char *colorImage, unsigned char *depthImage, unsigned int width,
-                                                  unsigned int height, const Eigen::Matrix3d& K_inv,
-                                                  double minDepth, double maxDepth, pcl::PointXYZRGBL *pointArray,
+                                                  unsigned int height, const Eigen::Matrix3d& K, pcl::PointXYZRGBL *pointArray,
                                                   unsigned long long *nValidPoints) {
 
                 // x: row
@@ -180,8 +178,17 @@ namespace pcl_aggregator {
                 // declare the pixel as [x,y,d]
                 Eigen::Vector3d pixel = {col, row, depthImage[index]};
 
+                // deproject x and y in camera frame
+                double point_x = (pixel[0] - K.coeff(0, 2)) / K.coeff(0, 0);
+                double point_y = (pixel[1] - K.coeff(1, 2)) / K.coeff(1, 1);
+                double point_z = 1;
+
                 // deproject the point
-                Eigen::Vector3d world_point = K_inv * pixel;
+                Eigen::Vector3d world_point;
+                world_point << point_x, point_y, point_z;
+
+                // normalize the point to the distance (Euclidean norm)
+                world_point = world_point / world_point.norm() * pixel[2];
 
                 // place the point on the last free spot
                 pointArray[*nValidPoints].x = world_point.x();
@@ -191,9 +198,6 @@ namespace pcl_aggregator {
                 pointArray[*nValidPoints].b = colorImage[index * 3];
                 pointArray[*nValidPoints].g = colorImage[index * 3 + 1];
                 pointArray[*nValidPoints].r = colorImage[index * 3 + 2];
-
-                // increment the valid point counter
-                atomicAdd(nValidPoints, 1);
             }
         }
     } // pcl_aggregator

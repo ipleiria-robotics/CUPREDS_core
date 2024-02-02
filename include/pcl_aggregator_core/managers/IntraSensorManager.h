@@ -122,6 +122,21 @@ namespace pcl_aggregator::managers {
             /*!\brief Flag to determine if the age watcher thread should be stopped or not. */
             bool keepAgeWatcherAlive = true;
 
+            /*! \brief Mutex controlling access to the statistics variables. */
+            std::mutex statisticsMutex;
+
+            /*! \brief Condition variable controlling access to the statistics variables. */
+            std::condition_variable statisticsCond;
+
+            /*! \brief Current average time needed to process a point cloud from being received to being output. */
+            double avgRegistrationTimeMs = 0.0f;
+
+            /*! \brief Variance of the time needed to process a point cloud from being received to being output. */
+            double varRegistrationTimeMs = 0.0f;
+
+            /*! \brief Number of samples contributing to the registration time statistics. */
+            size_t registrationTimeSampleCount = 0;
+
             /*! \brief Callback function to call when a PointCloud ages older than maxAge.
              * May be useful to remove points from the InterSensorManager's PointCloud.
              *
@@ -206,6 +221,19 @@ namespace pcl_aggregator::managers {
              */
             void setPointCloudReadyCallback(const std::function<void(entities::StampedPointCloud cloud,
                     std::string& sensorName)>& func);
+
+            /*! \brief Get the average time elapsed between point cloud arrival and delivery. */
+            double getAverageRegistrationTime();
+
+            /*! \brief Get the variance of the time elapsed between point cloud arrival and delivery. */
+            double getVarianceRegistrationTime();
+
+            /*! \brief Get the number of point clouds already processed
+             * This is also the number of pointclouds which already contributed to the average and variance of registration time.
+             */
+            size_t getSampleCount();
+
+
 
 
         /*! \brief Max age watching routine.

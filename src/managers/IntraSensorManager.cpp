@@ -268,6 +268,9 @@ namespace pcl_aggregator::managers {
 
             entities::StampedPointCloud spcl(POINTCLOUD_ORIGIN_NONE);
 
+            // assign the timestamp of the incoming point cloud to this new
+            spcl.setTimestamp(cloudToRegister->getTimestamp());
+
             {
                 // lock the cloud mutex
                 std::unique_lock lock(this->cloudMutex);
@@ -296,6 +299,31 @@ namespace pcl_aggregator::managers {
                 cloudToRegister->getPointCloud()->clear();
                 this->clouds.insert(std::move(cloudToRegister));
             }
+
+            // measure the time difference between capture and now
+            auto now = utils::Utils::getCurrentTimeMillis();
+            unsigned long long diff = now - cloudToRegister->getTimestamp();
+
+            {
+                // acquire the mutex
+                std::unique_lock lock(this->statisticsMutex);
+
+                // wait for the condition variable
+                this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+                // contribute to the average and variance
+                double delta = (double) diff - this->avgRegistrationTimeMs;
+                (this->registrationTimeSampleCount)++;
+
+                this->avgRegistrationTimeMs =
+                        this->avgRegistrationTimeMs + delta / (double) this->registrationTimeSampleCount;
+                if (this->registrationTimeSampleCount >= 2)
+                    this->varRegistrationTimeMs =
+                            this->varRegistrationTimeMs + delta * ((double) diff - this->avgRegistrationTimeMs);
+            }
+
+            // notify the next waiting for statistics
+            this->statisticsCond.notify_one();
 
             // call the InterSensorManager-defined callback
             // ATTENTION: on the InterSensorManager side this should be non-blocking, e.g., by adding to a queue of work
@@ -347,6 +375,63 @@ namespace pcl_aggregator::managers {
             // sleep for the period
             std::this_thread::sleep_for(std::chrono::seconds(AGE_WATCHER_PERIOD_SECONDS));
         }
+    }
+
+    double IntraSensorManager::getAverageRegistrationTime() {
+        double val;
+
+        {
+            // acquire mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = this->avgRegistrationTimeMs;
+        }
+
+        // notify next thread
+        this->statisticsCond.notify_one();
+
+        return val;
+    }
+
+    double IntraSensorManager::getVarianceRegistrationTime() {
+        double val;
+
+        {
+            // acquire mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = this->varRegistrationTimeMs;
+        }
+
+        // notify next thread
+        this->statisticsCond.notify_one();
+
+        return val;
+    }
+
+    size_t IntraSensorManager::getSampleCount() {
+        size_t val;
+
+        {
+            // acquire mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = this->registrationTimeSampleCount;
+        }
+
+        // notify next thread
+        this->statisticsCond.notify_one();
+
+        return val;
     }
 
 } // pcl_aggregator::managers

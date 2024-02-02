@@ -30,6 +30,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/registration/icp.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/common/transforms.h>
 #include <eigen3/Eigen/Dense>
 #include <cstdint>
 #include <set>
@@ -74,6 +75,9 @@ namespace pcl_aggregator::entities {
 
             /*! \brief Get the PointCloud timestamp. */
             unsigned long long getTimestamp() const;
+
+            /*! \brief Assign a new timestamp to the PointCloud. */
+            void setTimestamp(unsigned long long timestamp);
 
             /*! \brief Get a smart pointer to the PointCloud. */
             typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& getPointCloud();
