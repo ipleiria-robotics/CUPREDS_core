@@ -86,22 +86,31 @@ namespace pcl_aggregator::managers {
     void IntraSensorManager::removePointCloud(std::uint32_t label) {
 
         {
-            std::lock_guard<std::mutex> cloudGuard(this->cloudMutex);
+            std::unique_lock<std::mutex> lock(this->cloudMutex);
+
+            // wait for condition variable
+            this->cloudConditionVariable.wait(lock, [this]() {
+                return this->cloudReady;
+            });
 
             // remove points with that label from the merged pointcloud
             this->cloud->removePointsWithLabel(label);
         }
 
+        this->cloudConditionVariable.notify_one();
 
-        // lock the set
-        std::lock_guard<std::mutex> guard(this->setMutex);
 
-        // iterate the set
-        for(auto& c : this->clouds) {
-            if(c->getLabel() == label) {
-                // remove the pointcloud from the set
-                this->clouds.erase(c);
-                break;
+        {
+            // lock the set
+            std::lock_guard<std::mutex> guard(this->setMutex);
+
+            // iterate the set
+            for (auto &c: this->clouds) {
+                if (c->getLabel() == label) {
+                    // remove the pointcloud from the set
+                    this->clouds.erase(c);
+                    break;
+                }
             }
         }
 
@@ -128,14 +137,16 @@ namespace pcl_aggregator::managers {
         this->cloudConditionVariable.notify_one();
 
 
-        // lock the set
-        std::lock_guard<std::mutex> guard(this->setMutex);
+        {
+            // lock the set
+            std::lock_guard<std::mutex> guard(this->setMutex);
 
-        // iterate the set
-        for(auto& c : this->clouds) {
-            if(labels.find(c->getLabel()) != labels.end()) {
-                // remove the pointcloud from the set
-                this->clouds.erase(c);
+            // iterate the set
+            for (auto &c: this->clouds) {
+                if (labels.find(c->getLabel()) != labels.end()) {
+                    // remove the pointcloud from the set
+                    this->clouds.erase(c);
+                }
             }
         }
 
@@ -167,21 +178,24 @@ namespace pcl_aggregator::managers {
         } else {
             // if the transform is set, add to the queue of clouds waiting to be processed by the workers
 
-            // lock the mutex
-            std::lock_guard<std::mutex> lock(this->cloudsNotRegisteredMutex);
+            {
+                // lock the mutex
+                std::unique_lock<std::mutex> lock(this->cloudsNotRegisteredMutex);
 
-            // if the queue is full, remove the oldest pointcloud
-            // this producer doesn't wait for space, it just discards the oldest
-            if(this->cloudsNotRegistered.size() == UNPROCESSED_CLOUD_MAX_QUEUE_LEN) {
-                this->cloudsNotRegistered.pop_back();
+                this->cloudsNotRegisteredCond.wait(lock);
+
+                // if the queue is full, remove the oldest pointcloud
+                // this producer doesn't wait for space, it just discards the oldest
+                if (this->cloudsNotRegistered.size() == UNPROCESSED_CLOUD_MAX_QUEUE_LEN) {
+                    this->cloudsNotRegistered.pop_back();
+                }
+
+                // add the new pointcloud to the queue
+                this->cloudsNotRegistered.push_front(std::move(spcl));
             }
 
-            // add the new pointcloud to the queue
-            this->cloudsNotRegistered.push_front(std::move(spcl));
+            this->cloudsNotRegisteredCond.notify_one();
         }
-
-        // notify a worker that a new pointcloud is available
-        this->cloudsNotRegisteredCond.notify_one();
 
     }
 
@@ -267,6 +281,8 @@ namespace pcl_aggregator::managers {
             // notify next thread waiting to manipulate the queue
             this->cloudsNotRegisteredCond.notify_one();
 
+            std::cout << "Intra-sensor picked a job" << std::endl;
+
             // apply the sensor transform to the new point cloud
             cloudToRegister->applyTransform(this->sensorTransform);
 
@@ -296,6 +312,8 @@ namespace pcl_aggregator::managers {
 
             this->cloudConditionVariable.notify_one();
 
+            std::cout << "Intra-sensor registered cloud" << std::endl;
+
             // add the point cloud to the set
             {
                 std::unique_lock lock(this->setMutex);
@@ -303,6 +321,8 @@ namespace pcl_aggregator::managers {
                 cloudToRegister->getPointCloud()->clear();
                 this->clouds.insert(std::move(cloudToRegister));
             }
+
+            std::cout << "Intra-sensor added cloud to the set" << std::endl;
 
             // measure the time difference between capture and now
             auto now = utils::Utils::getCurrentTimeMillis();
@@ -328,6 +348,8 @@ namespace pcl_aggregator::managers {
 
             // notify the next waiting for statistics
             this->statisticsCond.notify_one();
+
+            std::cout << "Intra-sensor computed statistics" << std::endl;
 
             // call the InterSensorManager-defined callback
             // ATTENTION: on the InterSensorManager side this should be non-blocking, e.g., by adding to a queue of work

@@ -99,11 +99,8 @@ namespace pcl_aggregator::managers {
             /*! \brief Maximum age points live for. After this time they will be removed. */
             double maxAge;
 
-            /*! \brief Is registration currently ongoing? Used as a condition. */
-            bool registrationOngoing = false;
-
             /*! \brief Is the cloud being queried by the InterSensorManager? Used as condition. */
-            bool cloudReady = false;
+            bool cloudReady = true;
 
             /*! \brief Merged cloud access condition variable. */
             std::condition_variable cloudConditionVariable;

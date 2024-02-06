@@ -56,6 +56,8 @@ namespace pcl_aggregator::managers {
             return;
         }
 
+        std::cout << "Adding cloud" << std::endl;
+
         // the key is not present
         this->initStreamManager(topicName, this->maxAge);
 
@@ -127,45 +129,50 @@ namespace pcl_aggregator::managers {
         };
         std::shared_ptr<struct pending_cloud_entry_t> newEntry = std::make_shared<struct pending_cloud_entry_t>(e);
 
-        // acquire the mutex
-        std::unique_lock lock(this->pendingCloudsMutex);
+        {
+            // acquire the mutex
+            std::unique_lock lock(this->pendingCloudsMutex);
 
-        // verify if the queue has space
-        // if it doesn't, remove the oldest
-        if(this->pendingCloudsQueue.size() == MAX_WORKER_QUEUE_LEN) {
-            // get the last element
-            std::shared_ptr<struct pending_cloud_entry_t>& toRemove = std::ref(this->pendingCloudsQueue.back());
-            // remove from the map
-            this->pendingCloudsBySensorName.erase(toRemove->sensorName);
-            // remove from the queue
-            this->pendingCloudsQueue.pop_back();
-        }
+            this->pendingCloudsCond.wait(lock);
 
-        // if it was already in queue, remove the existent
-        if(this->pendingCloudsBySensorName.contains(sensorName)) {
-
-            // get a reference
-            std::shared_ptr<struct pending_cloud_entry_t>& existent = std::ref(this->pendingCloudsBySensorName[sensorName]);
-            size_t lookupIndex = existent->queueIndex;
-
-            // remove the existent entry
-            // from the queue
-            this->pendingCloudsQueue.erase(this->pendingCloudsQueue.begin() + lookupIndex);
-            // and from the map
-            this->pendingCloudsBySensorName.erase(sensorName);
-
-            // update subsequent entries
-            for(size_t i = lookupIndex; i < this->pendingCloudsQueue.size(); i++) {
-                (this->pendingCloudsQueue[i]->queueIndex)--;
+            // verify if the queue has space
+            // if it doesn't, remove the oldest
+            if (this->pendingCloudsQueue.size() == MAX_WORKER_QUEUE_LEN) {
+                // get the last element
+                std::shared_ptr<struct pending_cloud_entry_t> &toRemove = std::ref(this->pendingCloudsQueue.back());
+                // remove from the map
+                this->pendingCloudsBySensorName.erase(toRemove->sensorName);
+                // remove from the queue
+                this->pendingCloudsQueue.pop_back();
             }
-        }
 
-        // add the entry to the front of the queue
-        this->pendingCloudsQueue.push_front(newEntry);
-        // add the entry to the map
-        this->pendingCloudsBySensorName[sensorName] = newEntry;
-        // release ownership from this method
-        newEntry.reset();
+            // if it was already in queue, remove the existent
+            if (this->pendingCloudsBySensorName.contains(sensorName)) {
+
+                // get a reference
+                std::shared_ptr<struct pending_cloud_entry_t> &existent = std::ref(
+                        this->pendingCloudsBySensorName[sensorName]);
+                size_t lookupIndex = existent->queueIndex;
+
+                // remove the existent entry
+                // from the queue
+                this->pendingCloudsQueue.erase(this->pendingCloudsQueue.begin() + lookupIndex);
+                // and from the map
+                this->pendingCloudsBySensorName.erase(sensorName);
+
+                // update subsequent entries
+                for (size_t i = lookupIndex; i < this->pendingCloudsQueue.size(); i++) {
+                    (this->pendingCloudsQueue[i]->queueIndex)--;
+                }
+            }
+
+            // add the entry to the front of the queue
+            this->pendingCloudsQueue.push_front(newEntry);
+            // add the entry to the map
+            this->pendingCloudsBySensorName[sensorName] = newEntry;
+            // release ownership from this method
+            newEntry.reset();
+        }
 
         // notify the next worker that work is available
         this->pendingCloudsCond.notify_one();
@@ -174,8 +181,12 @@ namespace pcl_aggregator::managers {
     void InterSensorManager::initStreamManager(const std::string &topicName, double maxAge) {
         std::lock_guard<std::mutex> lock(this->managersMutex);
 
+        std::cout << "Will the manager initialize?" << std::endl;
+
         if(this->streamManagers.count(topicName) != 0)
             return;
+
+        std::cout << "Init new Intra-sensor manager" << std::endl;
 
         std::unique_ptr<IntraSensorManager> newStreamManager = std::make_unique<IntraSensorManager>(topicName, maxAge);
 
