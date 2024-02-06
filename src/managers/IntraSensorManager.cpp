@@ -246,6 +246,8 @@ namespace pcl_aggregator::managers {
 
         while(true) {
 
+            std::cout << "Intra-sensor worker loop start" << std::endl;
+
             {
                 // acquire the queue mutex
                 std::unique_lock lock(this->cloudsNotRegisteredMutex);
@@ -262,6 +264,8 @@ namespace pcl_aggregator::managers {
                 cloudToRegister = std::move(this->cloudsNotRegistered.front());
                 this->cloudsNotRegistered.pop_front();
             }
+            // notify next thread waiting to manipulate the queue
+            this->cloudsNotRegisteredCond.notify_one();
 
             // apply the sensor transform to the new point cloud
             cloudToRegister->applyTransform(this->sensorTransform);
@@ -329,8 +333,7 @@ namespace pcl_aggregator::managers {
             // ATTENTION: on the InterSensorManager side this should be non-blocking, e.g., by adding to a queue of work
             this->pointCloudReadyCallback(spcl, this->topicName);
 
-            // after completing the work, tell the next worker to pick a job
-            this->cloudsNotRegisteredCond.notify_one();
+            std::cout << "Intra-sensor worker look finish" << std::endl;
 
         }
     }

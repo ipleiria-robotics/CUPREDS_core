@@ -280,6 +280,8 @@ namespace pcl_aggregator::managers {
 
         while(true) {
 
+            std::cout << "Inter-sensor worker look start" << std::endl;
+
             entities::StampedPointCloud newCloud(POINTCLOUD_ORIGIN_NONE);
 
             {
@@ -304,6 +306,9 @@ namespace pcl_aggregator::managers {
                 this->pendingCloudsBySensorName.erase(sensorName);
             }
 
+            // notify next waiting thread
+            this->pendingCloudsCond.notify_one();
+
             {
                 // lock the point cloud mutex
                 std::unique_lock lock(this->cloudMutex);
@@ -320,6 +325,9 @@ namespace pcl_aggregator::managers {
 
                 this->cloudReady = true;
             }
+
+            // notify next waiting thread
+            this->cloudConditionVariable.notify_one();
 
             // update the statistics
             auto now = utils::Utils::getCurrentTimeMillis();
@@ -345,10 +353,7 @@ namespace pcl_aggregator::managers {
             // notify the next thread waiting for statistics
             this->statisticsCond.notify_one();
 
-            this->cloudConditionVariable.notify_one();
-
-            // notify the next worker to start
-            this->pendingCloudsCond.notify_one();
+            std::cout << "Inter-sensor worker loop end" << std::endl;
         }
 
     }
