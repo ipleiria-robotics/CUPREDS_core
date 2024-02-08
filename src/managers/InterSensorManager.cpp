@@ -268,6 +268,26 @@ namespace pcl_aggregator::managers {
         return val;
     }
 
+    double InterSensorManager::getStdDevRegistrationTime() {
+
+        double val;
+
+        {
+            // acquire the mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for the condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = std::sqrt(this->varRegistrationTimeMs);
+        }
+
+        // notify the next thread
+        this->statisticsCond.notify_one();
+
+        return val;
+    }
+
     size_t InterSensorManager::getSampleCount() {
         size_t val;
 

@@ -31,6 +31,7 @@
 #include <cstddef>
 #include <mutex>
 #include <thread>
+#include <cmath>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_aggregator_core/cuda/CUDAPointClouds.h>
@@ -194,6 +195,9 @@ namespace pcl_aggregator::managers {
 
             /*! \brief Get the variance of the time elapsed between point cloud arrival and delivery. */
             double getVarianceRegistrationTime();
+
+            /*! \brief Get the standard deviation of the time elapsed between point cloud arrival and delivery. */
+            double getStdDevRegistrationTime();
 
             /*! \brief Get the number of point clouds already processed.
              * This is also the number of point clouds already contributed to the average and variance of registration time.
