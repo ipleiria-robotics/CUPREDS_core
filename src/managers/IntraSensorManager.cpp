@@ -35,7 +35,7 @@ namespace pcl_aggregator::managers {
         this->maxAge = maxAge;
 
         // start the age watcher thread
-        this->maxAgeWatcherThread = std::thread(&IntraSensorManager::memoryWatcherLoop, this);
+        this->maxAgeWatcherThread = std::thread(&IntraSensorManager::ageWatcherLoop, this);
         pthread_setname_np(this->maxAgeWatcherThread.native_handle(), "maxAgeWatcherThread");
         this->maxAgeWatcherThread.detach();
 
@@ -93,16 +93,10 @@ namespace pcl_aggregator::managers {
                 return this->cloudReady;
             });
 
+            this->cloudReady = false;
+
             // remove points with that label from the merged pointcloud
             this->cloud->removePointsWithLabel(label);
-        }
-
-        this->cloudConditionVariable.notify_one();
-
-
-        {
-            // lock the set
-            std::lock_guard<std::mutex> guard(this->setMutex);
 
             // iterate the set
             for (auto &c: this->clouds) {
@@ -112,11 +106,16 @@ namespace pcl_aggregator::managers {
                     break;
                 }
             }
+
+            this->cloudReady = true;
         }
 
+        this->cloudConditionVariable.notify_one();
     }
 
-    void IntraSensorManager::removePointClouds(std::set<std::uint32_t> labels) {
+    std::set<std::uint32_t> IntraSensorManager::removeExpiredPointClouds() {
+
+        std::set<std::uint32_t> labelsToRemove;
 
         {
             std::unique_lock lock(this->cloudMutex);
@@ -127,8 +126,22 @@ namespace pcl_aggregator::managers {
 
             this->cloudReady = false;
 
-            // remove points with that label from the merged pointcloud
-            this->cloud->removePointsWithLabels(labels);
+            // iterate the set
+            for (auto &c: this->clouds) {
+                if (c->getTimestamp() <= utils::Utils::getMaxTimestampForAge(this->maxAge)) {
+                    // remove the entry from the set
+                    this->clouds.erase(c);
+
+                    // signal for removal
+                    labelsToRemove.insert(c->getLabel());
+
+                } else {
+                    break;
+                }
+            }
+
+            // remove all points marked for removal
+            this->cloud->removePointsWithLabels(labelsToRemove);
 
             this->cloudReady = true;
 
@@ -136,19 +149,7 @@ namespace pcl_aggregator::managers {
 
         this->cloudConditionVariable.notify_one();
 
-
-        {
-            // lock the set
-            std::lock_guard<std::mutex> guard(this->setMutex);
-
-            // iterate the set
-            for (auto &c: this->clouds) {
-                if (labels.find(c->getLabel()) != labels.end()) {
-                    // remove the pointcloud from the set
-                    this->clouds.erase(c);
-                }
-            }
-        }
+        return labelsToRemove;
 
     }
 
@@ -301,8 +302,15 @@ namespace pcl_aggregator::managers {
 
                 this->cloudReady = false;
 
+
                 // register the point cloud
                 this->cloud->registerPointCloud(cloudToRegister->getPointCloud());
+
+                // clear the points, will be no longer needed
+                cloudToRegister->getPointCloud()->clear();
+
+                // finally add the point cloud to the set
+                this->clouds.insert(std::move(cloudToRegister));
 
                 this->cloudReady = true;
 
@@ -313,16 +321,6 @@ namespace pcl_aggregator::managers {
             this->cloudConditionVariable.notify_one();
 
             std::cout << "Intra-sensor registered cloud" << std::endl;
-
-            // add the point cloud to the set
-            {
-                std::unique_lock lock(this->setMutex);
-                // the points can now be removed, all that matters is the label from now on. saves memory
-                cloudToRegister->getPointCloud()->clear();
-                this->clouds.insert(std::move(cloudToRegister));
-            }
-
-            std::cout << "Intra-sensor added cloud to the set" << std::endl;
 
             // measure the time difference between capture and now
             auto now = utils::Utils::getCurrentTimeMillis();
@@ -360,7 +358,7 @@ namespace pcl_aggregator::managers {
         }
     }
 
-    void IntraSensorManager::memoryWatcherLoop() {
+    void IntraSensorManager::ageWatcherLoop() {
 
         // set of labels with expired timestamps
         std::set<std::uint32_t> labelsToRemove;
@@ -368,24 +366,8 @@ namespace pcl_aggregator::managers {
         // while not signaled to stop
         while(this->keepAgeWatcherAlive) {
 
-            {
-                // lock the set
-                std::unique_lock lock(this->setMutex);
-
-                // find point clouds older than the max age
-                // the iterator iterates the set in ascending order
-                for (auto &iter: this->clouds) {
-                    if (iter->getTimestamp() <= utils::Utils::getMaxTimestampForAge(this->maxAge)) {
-                        labelsToRemove.insert(iter->getLabel());
-                        this->clouds.erase(iter); // remove from the set
-                    } else {
-                        break;
-                    }
-                }
-            }
-
             // remove the point clouds
-            this->removePointClouds(labelsToRemove);
+            std::set<std::uint32_t> labelsToRemove = this->removeExpiredPointClouds();
 
             // call the inter-sensor callback
             if(this->pointAgingCallback != nullptr) {
@@ -432,6 +414,25 @@ namespace pcl_aggregator::managers {
             this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
 
             val = this->varRegistrationTimeMs;
+        }
+
+        // notify next thread
+        this->statisticsCond.notify_one();
+
+        return val;
+    }
+
+    double IntraSensorManager::getStdDevRegistrationTime() {
+        double val;
+
+        {
+            // acquire mutex
+            std::unique_lock lock(this->statisticsMutex);
+
+            // wait for condition variable
+            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
+
+            val = std::sqrt(this->varRegistrationTimeMs);
         }
 
         // notify next thread

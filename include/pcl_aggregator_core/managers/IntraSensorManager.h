@@ -31,6 +31,7 @@
 #include <set>
 #include <queue>
 #include <mutex>
+#include <cmath>
 #include <eigen3/Eigen/Dense>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -105,9 +106,7 @@ namespace pcl_aggregator::managers {
             /*! \brief Merged cloud access condition variable. */
             std::condition_variable cloudConditionVariable;
 
-            /*! \brief Mutex to manage access to the clouds set. */
-            std::mutex setMutex;
-            /*! \brief Mutex to manage access to the merged PointCloud. */
+            /*! \brief Mutex to manage access to the merged PointCloud and point cloud set. */
             std::mutex cloudMutex;
             /*! \brief Mutex to manage access to the sensor transform. */
             std::mutex sensorTransformMutex;
@@ -150,15 +149,19 @@ namespace pcl_aggregator::managers {
             /*! \brief Loop ran by the workers, taking jobs from the queue. Each worker runs this method. */
             void workersLoop();
 
-            /*! \brief Loop ran by the memory watcher. */
-            void memoryWatcherLoop();
+            /*! \brief Loop ran by the age watcher. */
+            void ageWatcherLoop();
 
             /*! \brief Compute the sensor transform. */
             void moveTransformPendingToQueue();
 
             void removePointCloud(std::uint32_t label);
 
-            void removePointClouds(std::set<std::uint32_t> labels);
+            /*! \brief Remove expired point clouds from the merged point cloud. 
+             
+             * @return Set of labels removed 
+             * */
+            std::set<std::uint32_t> removeExpiredPointClouds();
 
         public:
             IntraSensorManager(const std::string& topicName, double maxAge);
@@ -224,6 +227,9 @@ namespace pcl_aggregator::managers {
 
             /*! \brief Get the variance of the time elapsed between point cloud arrival and delivery. */
             double getVarianceRegistrationTime();
+
+            /*! \brief Get the standard deviation of the time elapsed between point cloud arrival and delivery. */
+            double getStdDevRegistrationTime();
 
             /*! \brief Get the number of point clouds already processed
              * This is also the number of pointclouds which already contributed to the average and variance of registration time.

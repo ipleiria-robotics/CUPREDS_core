@@ -131,7 +131,6 @@ namespace pcl_aggregator::managers {
              *
              * @param nSources Number of sensors to manage.
              * @param maxAge Maximum age for each point from the moment it is captured.
-             * @param maxMemory Memory hard-limit for point clouds.
              */
             InterSensorManager(size_t nSources, double maxAge);
 
