@@ -47,6 +47,14 @@ namespace pcl_aggregator::entities {
         this->cloud.reset();
     }
 
+    bool StampedPointCloud::operator==(const StampedPointCloud& other) {
+        return this->label == other.getLabel();
+    }
+
+    bool StampedPointCloud::operator==(const std::unique_ptr<StampedPointCloud>& other) {
+        return this->label == other->getLabel();
+    }
+
     // generate a 32-bit label and assign
     std::uint32_t StampedPointCloud::generateLabel() {
 
@@ -94,6 +102,16 @@ namespace pcl_aggregator::entities {
                 StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
         } else {
             std::cerr << "StampedPointCloud::setPointCloud: cloud is null!" << std::endl;
+        }
+    }
+
+    void StampedPointCloud::setPointCloudValue(pcl::PointCloud<pcl::PointXYZRGBL> c, bool assignGeneratedLabel) {
+
+        // copy the value
+        *(this->cloud) = c;
+
+        if(assignGeneratedLabel) {
+            StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
         }
     }
 
@@ -176,15 +194,17 @@ namespace pcl_aggregator::entities {
         // if this point cloud is empty, it can just become the new
         if(this->cloud->empty()) {
             #ifdef USE_CUDA
+            *(this->cloud) += *newCloud;
+            /*
             // concatenate using GPU
             if (cuda::pointclouds::concatenatePointCloudsCuda(this->cloud,
                                                               reinterpret_cast<const pcl::PointCloud<pcl::PointXYZRGBL> &>(newCloud)) <
                 0) {
                 throw std::runtime_error("Error copying incoming point cloud");
-            }
+            }*/
             #else
             // concatenate using CPU
-            *this->cloud += *newCloud;
+            *(this->cloud) += *newCloud;
             #endif
             return;
         }
@@ -213,12 +233,14 @@ namespace pcl_aggregator::entities {
         // merge the point clouds after registration
         #ifdef USE_CUDA
         // concatenate using GPU
+        *(this->cloud) += *newCloud;
+        /*
         if(cuda::pointclouds::concatenatePointCloudsCuda(this->cloud, reinterpret_cast<const pcl::PointCloud<pcl::PointXYZRGBL> &>(newCloud)) < 0) {
             throw std::runtime_error("Error concatenating point clouds after registration");
-        }
+        }*/
         #else
         // concatenate using CPU
-        *this->cloud += *newCloud;
+        *(this->cloud) += *newCloud;
         #endif
 
         this->downsample(ICP_DOWNSAMPLE_SIZE);

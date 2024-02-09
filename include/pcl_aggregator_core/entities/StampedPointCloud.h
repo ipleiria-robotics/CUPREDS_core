@@ -73,6 +73,9 @@ namespace pcl_aggregator::entities {
             StampedPointCloud(const std::string& originTopic);
             ~StampedPointCloud();
 
+            bool operator==(const StampedPointCloud& other);
+            bool operator==(const std::unique_ptr<StampedPointCloud>& other);
+
             /*! \brief Get the PointCloud timestamp. */
             unsigned long long getTimestamp() const;
 
@@ -93,6 +96,9 @@ namespace pcl_aggregator::entities {
              * @param assignGeneratedLabel Assign a generated label or not. Generating the label has an additional overhead, but is usually needed.
              * */
             void setPointCloud(typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr cloud, bool assignGeneratedLabel=true);
+
+            void setPointCloudValue(pcl::PointCloud<pcl::PointXYZRGBL> cloud, bool assignGeneratedLabel=true);
+
             /*! \brief Set the origin topic name.
              * @param origin The topic name.
              */

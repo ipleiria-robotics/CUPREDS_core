@@ -56,8 +56,6 @@ namespace pcl_aggregator::managers {
             return;
         }
 
-        std::cout << "Adding cloud" << std::endl;
-
         // the key is not present
         this->initStreamManager(topicName, this->maxAge);
 
@@ -133,11 +131,13 @@ namespace pcl_aggregator::managers {
             // acquire the mutex
             std::unique_lock lock(this->pendingCloudsMutex);
 
-            this->pendingCloudsCond.wait(lock);
+            this->pendingCloudsCond.wait(lock, [this]() {
+                return this->pendingCloudsQueue.size() < MAX_WORKER_QUEUE_LEN;
+            });
 
             // verify if the queue has space
             // if it doesn't, remove the oldest
-            if (this->pendingCloudsQueue.size() == MAX_WORKER_QUEUE_LEN) {
+            if (this->pendingCloudsQueue.size() == MAX_WORKER_QUEUE_LEN - 1) {
                 // get the last element
                 std::shared_ptr<struct pending_cloud_entry_t> &toRemove = std::ref(this->pendingCloudsQueue.back());
                 // remove from the map
@@ -181,22 +181,20 @@ namespace pcl_aggregator::managers {
     void InterSensorManager::initStreamManager(const std::string &topicName, double maxAge) {
         std::lock_guard<std::mutex> lock(this->managersMutex);
 
-        std::cout << "Will the manager initialize?" << std::endl;
-
         if(this->streamManagers.count(topicName) != 0)
             return;
-
-        std::cout << "Init new Intra-sensor manager" << std::endl;
 
         std::unique_ptr<IntraSensorManager> newStreamManager = std::make_unique<IntraSensorManager>(topicName, maxAge);
 
         // set the point removing method as a callback when some pointcloud ages on the stream manager
-        newStreamManager->setPointAgingCallback(std::bind(&InterSensorManager::removePointsByLabel, this,
-                                                          std::placeholders::_1));
+        newStreamManager->setPointAgingCallback([this](const std::set<std::uint32_t>& labels) {
+                this->removePointsByLabel(labels);
+        });
 
         // add a pointcloud whenever the IntraSensorManager has one ready
-        newStreamManager->setPointCloudReadyCallback(std::bind(&InterSensorManager::addSensorPointCloud, this,
-                                                               std::placeholders::_1, std::placeholders::_2));
+        newStreamManager->setPointCloudReadyCallback([this](entities::StampedPointCloud cloud, std::string& sensorName) {
+                this->addSensorPointCloud(cloud, sensorName);
+        });
 
         this->streamManagers[topicName] = std::move(newStreamManager);
     }
@@ -237,14 +235,8 @@ namespace pcl_aggregator::managers {
             // acquire the mutex
             std::unique_lock lock(this->statisticsMutex);
 
-            // wait for the condition variable
-            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
-
             val = this->avgRegistrationTimeMs;
         }
-
-        // notify the next thread
-        this->statisticsCond.notify_one();
 
         return val;
     }
@@ -256,14 +248,8 @@ namespace pcl_aggregator::managers {
             // acquire the mutex
             std::unique_lock lock(this->statisticsMutex);
 
-            // wait for the condition variable
-            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
-
             val = this->varRegistrationTimeMs;
         }
-
-        // notify the next thread
-        this->statisticsCond.notify_one();
 
         return val;
     }
@@ -276,14 +262,8 @@ namespace pcl_aggregator::managers {
             // acquire the mutex
             std::unique_lock lock(this->statisticsMutex);
 
-            // wait for the condition variable
-            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
-
             val = std::sqrt(this->varRegistrationTimeMs);
         }
-
-        // notify the next thread
-        this->statisticsCond.notify_one();
 
         return val;
     }
@@ -295,14 +275,8 @@ namespace pcl_aggregator::managers {
             // acquire the mutex
             std::unique_lock lock(this->statisticsMutex);
 
-            // wait for the condition variable
-            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
-
             val = this->registrationTimeSampleCount;
         }
-
-        // notify the next thread
-        this->pendingCloudsCond.notify_one();
 
         return val;
     }
@@ -310,8 +284,6 @@ namespace pcl_aggregator::managers {
     void InterSensorManager::workersLoop() {
 
         while(true) {
-
-            std::cout << "Inter-sensor worker look start" << std::endl;
 
             entities::StampedPointCloud newCloud(POINTCLOUD_ORIGIN_NONE);
 
@@ -367,9 +339,6 @@ namespace pcl_aggregator::managers {
                 // acquire the mutex
                 std::unique_lock lock(this->statisticsMutex);
 
-                // wait for the statistics condition variable
-                this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
-
                 // update the statistics
                 double delta = (double) diff - this->avgRegistrationTimeMs;
                 (this->registrationTimeSampleCount)++;
@@ -380,11 +349,6 @@ namespace pcl_aggregator::managers {
                     this->varRegistrationTimeMs =
                             this->varRegistrationTimeMs + delta * ((double) diff - this->avgRegistrationTimeMs);
             }
-
-            // notify the next thread waiting for statistics
-            this->statisticsCond.notify_one();
-
-            std::cout << "Inter-sensor worker loop end" << std::endl;
         }
 
     }

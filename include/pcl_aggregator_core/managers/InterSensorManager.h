@@ -115,9 +115,6 @@ namespace pcl_aggregator::managers {
             /*! \brief Mutex controlling access to the statistics variables. */
             std::mutex statisticsMutex;
 
-            /*! \brief Condition variable controlling access to the statistics variables. */
-            std::condition_variable statisticsCond;
-
             /*! \brief Average time elapsed since a point cloud is received and is ready to be returned, after processing. */
             double avgRegistrationTimeMs = 0.0f;
 

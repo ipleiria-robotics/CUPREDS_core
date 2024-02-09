@@ -53,12 +53,19 @@ namespace pcl_aggregator::managers {
         // wait for the watcher to end
         this->maxAgeWatcherThread.join();
 
+        // empty the set
         for(const auto& c : this->clouds) {
             this->clouds.erase(c);
         }
 
+        // empty the transform buffer
         while(!this->cloudsNotTransformed.empty()) {
             this->cloudsNotTransformed.pop();
+        }
+
+        // empty the work queue
+        while(!this->cloudsNotRegistered.empty()) {
+            this->cloudsNotRegistered.pop_back();
         }
 
         // signal registration workers to stop
@@ -129,8 +136,6 @@ namespace pcl_aggregator::managers {
             // iterate the set
             for (auto &c: this->clouds) {
                 if (c->getTimestamp() <= utils::Utils::getMaxTimestampForAge(this->maxAge)) {
-                    // remove the entry from the set
-                    this->clouds.erase(c);
 
                     // signal for removal
                     labelsToRemove.insert(c->getLabel());
@@ -139,6 +144,10 @@ namespace pcl_aggregator::managers {
                     break;
                 }
             }
+
+            std::erase_if(this->clouds, [this](auto const& c) {
+                return c->getTimestamp() <= utils::Utils::getMaxTimestampForAge(this->maxAge);
+            });
 
             // remove all points marked for removal
             this->cloud->removePointsWithLabels(labelsToRemove);
@@ -183,11 +192,13 @@ namespace pcl_aggregator::managers {
                 // lock the mutex
                 std::unique_lock<std::mutex> lock(this->cloudsNotRegisteredMutex);
 
-                this->cloudsNotRegisteredCond.wait(lock);
+                this->cloudsNotRegisteredCond.wait(lock, [this]() {
+                    return this->cloudsNotRegistered.size() < UNPROCESSED_CLOUD_MAX_QUEUE_LEN;
+                });
 
-                // if the queue is full, remove the oldest pointcloud
+                // if the queue will become full, remove the oldest pointcloud
                 // this producer doesn't wait for space, it just discards the oldest
-                if (this->cloudsNotRegistered.size() == UNPROCESSED_CLOUD_MAX_QUEUE_LEN) {
+                if (this->cloudsNotRegistered.size() == UNPROCESSED_CLOUD_MAX_QUEUE_LEN - 1) {
                     this->cloudsNotRegistered.pop_back();
                 }
 
@@ -213,7 +224,7 @@ namespace pcl_aggregator::managers {
             });
 
             // assign the value to the variable
-            result = *this->cloud->getPointCloud();
+            result = *(this->cloud->getPointCloud());
         }
 
         // notify the next thread in queue
@@ -257,11 +268,9 @@ namespace pcl_aggregator::managers {
 
     void IntraSensorManager::workersLoop() {
 
-        std::unique_ptr<entities::StampedPointCloud> cloudToRegister;
-
         while(true) {
 
-            std::cout << "Intra-sensor worker loop start" << std::endl;
+            std::unique_ptr<entities::StampedPointCloud> cloudToRegister;
 
             {
                 // acquire the queue mutex
@@ -282,8 +291,6 @@ namespace pcl_aggregator::managers {
             // notify next thread waiting to manipulate the queue
             this->cloudsNotRegisteredCond.notify_one();
 
-            std::cout << "Intra-sensor picked a job" << std::endl;
-
             // apply the sensor transform to the new point cloud
             cloudToRegister->applyTransform(this->sensorTransform);
 
@@ -302,36 +309,30 @@ namespace pcl_aggregator::managers {
 
                 this->cloudReady = false;
 
-
                 // register the point cloud
                 this->cloud->registerPointCloud(cloudToRegister->getPointCloud());
 
                 // clear the points, will be no longer needed
                 cloudToRegister->getPointCloud()->clear();
-
+                
                 // finally add the point cloud to the set
                 this->clouds.insert(std::move(cloudToRegister));
 
                 this->cloudReady = true;
 
                 // get the point cloud
-                spcl = *this->cloud;
+                spcl.setPointCloudValue(*(this->cloud->getPointCloud()));
             }
 
             this->cloudConditionVariable.notify_one();
 
-            std::cout << "Intra-sensor registered cloud" << std::endl;
-
             // measure the time difference between capture and now
             auto now = utils::Utils::getCurrentTimeMillis();
-            unsigned long long diff = now - cloudToRegister->getTimestamp();
+            unsigned long long diff = now - spcl.getTimestamp();
 
             {
                 // acquire the mutex
                 std::unique_lock lock(this->statisticsMutex);
-
-                // wait for the condition variable
-                this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
 
                 // contribute to the average and variance
                 double delta = (double) diff - this->avgRegistrationTimeMs;
@@ -344,16 +345,9 @@ namespace pcl_aggregator::managers {
                             this->varRegistrationTimeMs + delta * ((double) diff - this->avgRegistrationTimeMs);
             }
 
-            // notify the next waiting for statistics
-            this->statisticsCond.notify_one();
-
-            std::cout << "Intra-sensor computed statistics" << std::endl;
-
             // call the InterSensorManager-defined callback
             // ATTENTION: on the InterSensorManager side this should be non-blocking, e.g., by adding to a queue of work
             this->pointCloudReadyCallback(spcl, this->topicName);
-
-            std::cout << "Intra-sensor worker look finish" << std::endl;
 
         }
     }
@@ -367,7 +361,10 @@ namespace pcl_aggregator::managers {
         while(this->keepAgeWatcherAlive) {
 
             // remove the point clouds
-            std::set<std::uint32_t> labelsToRemove = this->removeExpiredPointClouds();
+            labelsToRemove = this->removeExpiredPointClouds();
+
+            if(labelsToRemove.empty())
+                continue;
 
             // call the inter-sensor callback
             if(this->pointAgingCallback != nullptr) {
@@ -391,14 +388,8 @@ namespace pcl_aggregator::managers {
             // acquire mutex
             std::unique_lock lock(this->statisticsMutex);
 
-            // wait for condition variable
-            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
-
             val = this->avgRegistrationTimeMs;
         }
-
-        // notify next thread
-        this->statisticsCond.notify_one();
 
         return val;
     }
@@ -410,14 +401,8 @@ namespace pcl_aggregator::managers {
             // acquire mutex
             std::unique_lock lock(this->statisticsMutex);
 
-            // wait for condition variable
-            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
-
             val = this->varRegistrationTimeMs;
         }
-
-        // notify next thread
-        this->statisticsCond.notify_one();
 
         return val;
     }
@@ -429,14 +414,8 @@ namespace pcl_aggregator::managers {
             // acquire mutex
             std::unique_lock lock(this->statisticsMutex);
 
-            // wait for condition variable
-            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
-
             val = std::sqrt(this->varRegistrationTimeMs);
         }
-
-        // notify next thread
-        this->statisticsCond.notify_one();
 
         return val;
     }
@@ -448,14 +427,8 @@ namespace pcl_aggregator::managers {
             // acquire mutex
             std::unique_lock lock(this->statisticsMutex);
 
-            // wait for condition variable
-            this->statisticsCond.wait_for(lock, std::chrono::milliseconds(50));
-
             val = this->registrationTimeSampleCount;
         }
-
-        // notify next thread
-        this->statisticsCond.notify_one();
 
         return val;
     }
