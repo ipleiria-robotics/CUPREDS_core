@@ -42,6 +42,7 @@
 #define GLOBAL_ICP_MAX_ITERATIONS 3
 
 #define MAX_WORKER_QUEUE_LEN 10
+#define MAX_REMOVAL_WORKER_QUEUE_LEN 10
 
 #define VOXEL_LEAF_SIZE 0.2f
 
@@ -97,8 +98,11 @@ namespace pcl_aggregator::managers {
             /*! \brief Is the age watcher removing points? */
             bool beingExpired = false;
 
-            /*! \breif The vector of inter-sensor workers doing sensor registration. */
+            /*! \brief The vector of inter-sensor workers doing sensor registration. */
             std::vector<std::thread> workers;
+
+            /*! \brief The point removal worker thread. */
+            std::thread removalWorker;
 
             /*! \brief Flag to signal workers to stop. */
             bool workersShouldStop = false;
@@ -115,8 +119,17 @@ namespace pcl_aggregator::managers {
             /*! \brief Mutex to control access to the queue and map of pending point clouds. */
             std::mutex pendingCloudsMutex;
 
-            /*! \brief Condition variable to constrol access to the queue and map of pending point clouds. */
+            /*! \brief Condition variable to control access to the queue and map of pending point clouds. */
             std::condition_variable pendingCloudsCond;
+
+            /*! \brief Queue of point cloud batches to be removed. */
+            std::deque<std::set<std::uint32_t>> cloudsToRemove;
+
+            /*! \brief Mutex controlling access to the queue of point clouds to be removed. */
+            std::mutex cloudsToRemoveMutex;
+
+            /*! \brief Condition variable controlling access to the queue of point clouds to be removed. */
+            std::condition_variable cloudsToRemoveCond;
 
             /*! \brief Mutex controlling access to the statistics variables. */
             std::mutex statisticsMutex;
@@ -160,6 +173,12 @@ namespace pcl_aggregator::managers {
              * @param cloud The PointCloud to add.
              */
             void addSensorPointCloud(entities::StampedPointCloud cloud, std::string& sensorName);
+
+            /*! \brief Registration workers loop. */
+            void workersLoop();
+
+            /*! \brief Point cloud removal worker loop. */
+            void removalWorkerLoop();
 
         public:
 
@@ -217,8 +236,6 @@ namespace pcl_aggregator::managers {
 
             /*! \brief TODO Get intra-sensor standar deviation latency. */
             double getIntraSensorStdDev();
-
-            void workersLoop();
 
     };
 } // pcl_aggregator::managers

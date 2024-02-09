@@ -40,6 +40,10 @@ namespace pcl_aggregator::managers {
         for(size_t i = 0; i < NUM_INTER_SENSOR_WORKERS; i++) {
             this->workers.emplace_back(&InterSensorManager::workersLoop, this);
         }
+
+        // create the removal worker
+        this->removalWorker = std::thread(&InterSensorManager::removalWorker, this);
+        this->removalWorker.detach();
     }
 
     size_t InterSensorManager::getNClouds() const {
@@ -94,27 +98,22 @@ namespace pcl_aggregator::managers {
 
     void InterSensorManager::removePointsByLabel(const std::set<std::uint32_t>& labels) {
 
+
         {
-            // lock the point cloud
-            std::unique_lock lock(this->cloudMutex);
+            // lock access to the queue
+            std::unique_lock lock(this->cloudsToRemoveMutex);
 
-            // wait for the condition variable
-            this->cloudConditionVariable.wait(lock, [this]() {
-                return !(this->workerProcessing) && !(this->beingExpired);
-            });
+            // if the queue is going to get full, remove the most recent
+            // pop from the head
+            if(this->cloudsToRemove.size() == MAX_REMOVAL_WORKER_QUEUE_LEN - 1)
+                this->cloudsToRemove.pop_front();
 
-            this->beingExpired = true;
-
-            // remove the points with the label
-            this->mergedCloud.removePointsWithLabels(labels);
-
-            std::cout << "[INTER] Removed points (" << labels.size() << " clouds)" << std::endl;
-
-            this->beingExpired = false;
-            this->readyToConsume = true;
+            // add the new batch to the queue
+            this->cloudsToRemove.push_front(labels);
         }
 
-        this->cloudConditionVariable.notify_one();
+        // notify the removal worker
+        this->cloudsToRemoveCond.notify_one();
     }
 
     void InterSensorManager::addSensorPointCloud(entities::StampedPointCloud cloud,
@@ -224,6 +223,15 @@ namespace pcl_aggregator::managers {
             // signal all workers to stop
             instance->workersShouldStop = true;
             instance->pendingCloudsCond.notify_all();
+            instance->cloudsToRemoveCond.notify_all();
+
+            // wait for workers
+            for(auto& w : instance->workers) {
+                w.join();
+            }
+
+            // wait for point removal worker
+            instance->removalWorker.join();
 
             delete instance;
             instance = nullptr;
@@ -374,5 +382,68 @@ namespace pcl_aggregator::managers {
             }
         }
 
+    }
+
+    void InterSensorManager::removalWorkerLoop() {
+
+        /*
+
+        std::set<std::uint32_t> labelsToRemove;
+
+        while(true) {
+
+            {
+                // acquire the queue mutex
+                std::unique_lock lock(this->cloudsToRemoveMutex);
+
+                // wait for the condition variable
+                // wait to have at least one point cloud to remove
+                this->cloudsToRemoveCond.wait(lock, [this]() {
+                    return this->cloudsToRemove.size() > 0 || this->workersShouldStop;
+                });
+
+                if(this->workersShouldStop)
+                    return;
+
+                // pick one batch from the queue
+                // FIFO queue: pick from the tail
+                labelsToRemove = this->cloudsToRemove.back();
+                this->cloudsToRemove.pop_back(); // remove from the queue
+            }
+
+            // notify threads waiting to access the removal queue
+            this->cloudsToRemoveCond.notify_one();
+
+            {
+                // acquire the point cloud mutex
+                std::unique_lock lock(this->cloudMutex);
+
+                // wait for the condition variable
+                // nor the workers or age watchers can be manipulating
+                this->cloudConditionVariable.wait(lock, [this]() {
+                    return !(this->workerProcessing) && !(this->beingExpired);
+                });
+
+                // mark the point cloud as being expired
+                this->beingExpired = true;
+
+                // remove the points with the labels
+                this->mergedCloud.removePointsWithLabels(labelsToRemove);
+
+                std::cout << "[INTER] Removed points (" << labelsToRemove.size() << " clouds)" << std::endl;
+
+                // clear the batch
+                labelsToRemove.clear();
+
+                // a new point cloud version is ready to be consumed
+                this->beingExpired = false;
+                this->readyToConsume = true;
+            }
+
+            // notify threads waiting to manipulate the point clouds
+            this->cloudConditionVariable.notify_one();
+        }
+
+        */
     }
 } // pcl_aggregator::managers
