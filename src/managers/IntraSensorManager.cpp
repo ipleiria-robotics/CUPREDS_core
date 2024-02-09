@@ -35,10 +35,9 @@ namespace pcl_aggregator::managers {
         this->maxAge = maxAge;
 
         // start the age watcher thread
-        /*
         this->maxAgeWatcherThread = std::thread(&IntraSensorManager::ageWatcherLoop, this);
         pthread_setname_np(this->maxAgeWatcherThread.native_handle(), "maxAgeWatcherThread");
-        this->maxAgeWatcherThread.detach();*/
+        this->maxAgeWatcherThread.detach();
 
         // start the workers
         for(size_t i = 0; i < NUM_INTRA_SENSOR_WORKERS; i++) {
@@ -272,7 +271,7 @@ namespace pcl_aggregator::managers {
             // apply the sensor transform to the new point cloud
             cloudToRegister->applyTransform(this->sensorTransform);
 
-            entities::StampedPointCloud spcl(POINTCLOUD_ORIGIN_NONE);
+            entities::StampedPointCloud spcl(cloudToRegister->getOriginTopic());
 
             // assign the timestamp of the incoming point cloud to this new
             spcl.setTimestamp(cloudToRegister->getTimestamp());

@@ -34,7 +34,7 @@ namespace pcl_aggregator::entities {
     StampedPointCloud::StampedPointCloud(const std::string& originTopic) {
         this->timestamp = utils::Utils::getCurrentTimeMillis();
 
-        this->setOriginTopic(originTopic);
+        this->originTopic = originTopic;
 
         this->label = generateLabel();
 
@@ -75,6 +75,9 @@ namespace pcl_aggregator::entities {
 
         // re-generate the label
         this->label = this->generateLabel();
+
+        // re-assign the label
+        StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
     }
 
     typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& StampedPointCloud::getPointCloud() {
@@ -126,6 +129,12 @@ namespace pcl_aggregator::entities {
 
     void StampedPointCloud::setOriginTopic(const std::string& origin) {
         this->originTopic = origin;
+
+        // re-generate the label
+        this->label = this->generateLabel();
+
+        // re-assign the label
+        StampedPointCloud::assignLabelToPointCloud(this->cloud, this->label);
     }
 
     bool StampedPointCloud::isTransformComputed() const {
@@ -170,10 +179,11 @@ namespace pcl_aggregator::entities {
         auto it = this->cloud->begin();
         while (it != this->cloud->end()) {
             // if the label is in the set, remove it
-            if (labels.find(it->label) != labels.end())
+            if (labels.find(it->label) != labels.end()) {
                 it = this->cloud->erase(it);
-            else
+            } else {
                 ++it;
+            }
         }
     }
 

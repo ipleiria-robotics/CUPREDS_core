@@ -42,7 +42,7 @@ namespace pcl_aggregator::managers {
         }
 
         // create the removal worker
-        this->removalWorker = std::thread(&InterSensorManager::removalWorker, this);
+        this->removalWorker = std::thread(&InterSensorManager::removalWorkerLoop, this);
         this->removalWorker.detach();
     }
 
@@ -90,6 +90,8 @@ namespace pcl_aggregator::managers {
                 this->readyToConsume = false;
         }
 
+        std::cout << "[INTER] No. of points: *****" << tmp.size() << "*****" << std::endl;
+
         // notify the next thread in queue to continue
         this->cloudConditionVariable.notify_one();
 
@@ -111,6 +113,8 @@ namespace pcl_aggregator::managers {
             // add the new batch to the queue
             this->cloudsToRemove.push_front(labels);
         }
+
+        std::cout << "[INTER] Scheduling clouds to remove" << std::endl;
 
         // notify the removal worker
         this->cloudsToRemoveCond.notify_one();
@@ -386,11 +390,11 @@ namespace pcl_aggregator::managers {
 
     void InterSensorManager::removalWorkerLoop() {
 
-        /*
-
         std::set<std::uint32_t> labelsToRemove;
 
         while(true) {
+
+            std::cout << "[INTER] Removal loop" << std::endl;
 
             {
                 // acquire the queue mutex
@@ -443,7 +447,5 @@ namespace pcl_aggregator::managers {
             // notify threads waiting to manipulate the point clouds
             this->cloudConditionVariable.notify_one();
         }
-
-        */
     }
 } // pcl_aggregator::managers

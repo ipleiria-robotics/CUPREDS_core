@@ -53,7 +53,7 @@
 
 #define NUM_INTRA_SENSOR_WORKERS 2
 
-#define AGE_WATCHER_PERIOD_SECONDS 5
+#define AGE_WATCHER_PERIOD_SECONDS 3
 
 namespace pcl_aggregator::managers {
 
