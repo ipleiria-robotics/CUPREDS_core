@@ -209,6 +209,7 @@ namespace pcl_aggregator::entities {
             return;
         }
 
+        /*
         // if none of the point clouds are empty, do the registration
         pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
@@ -228,7 +229,7 @@ namespace pcl_aggregator::entities {
             icp.setInputTarget(newCloud);
             // transform this->cloud
             icp.align(*this->cloud);
-        }
+        }*/
 
         // merge the point clouds after registration
         #ifdef USE_CUDA

@@ -53,7 +53,7 @@
 
 #define NUM_INTRA_SENSOR_WORKERS 2
 
-#define AGE_WATCHER_PERIOD_SECONDS 1
+#define AGE_WATCHER_PERIOD_SECONDS 5
 
 namespace pcl_aggregator::managers {
 
@@ -173,13 +173,6 @@ namespace pcl_aggregator::managers {
              * @param newCloud The PointCloud smart pointer.
              */
             void addCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr newCloud);
-
-            /*!
-             * \brief Get the merged version of the still valid PointClouds fed into this manager.
-             * This method acts as point cloud consumer: it waits for the point cloud to be ready before returning.
-             * @return The merged PointCloud smart pointer.
-             */
-            pcl::PointCloud<pcl::PointXYZRGBL> getCloud(); // returning the pointer prevents massive memory copies
 
             /*!
              * \brief Set the transform between the sensor frame and the robot base frame.

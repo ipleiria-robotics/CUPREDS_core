@@ -69,7 +69,7 @@ namespace pcl_aggregator::managers {
         this->streamManagers[topicName]->setSensorTransform(transform);
     }
 
-    pcl::PointCloud<pcl::PointXYZRGBL> InterSensorManager::getMergedCloud() {
+    pcl::PointCloud<pcl::PointXYZRGBL> InterSensorManager::getMergedCloud(bool consume) {
 
         pcl::PointCloud<pcl::PointXYZRGBL> tmp;
 
@@ -78,9 +78,12 @@ namespace pcl_aggregator::managers {
             std::unique_lock<std::mutex> lock(this->cloudMutex);
 
             // wait for the condition variable
-            this->cloudConditionVariable.wait(lock, [this] { return this->cloudReady; });
+            this->cloudConditionVariable.wait(lock, [this] { return this->readyToConsume; });
 
             tmp = *(this->mergedCloud.getPointCloud());
+
+            if(consume)
+                this->readyToConsume = false;
         }
 
         // notify the next thread in queue to continue
@@ -91,28 +94,27 @@ namespace pcl_aggregator::managers {
 
     void InterSensorManager::removePointsByLabel(const std::set<std::uint32_t>& labels) {
 
-        std::thread pointRemovingThread = std::thread([this,labels]() {
+        {
+            // lock the point cloud
+            std::unique_lock lock(this->cloudMutex);
 
-            {
-                // lock the point cloud
-                std::unique_lock lock(this->cloudMutex);
+            // wait for the condition variable
+            this->cloudConditionVariable.wait(lock, [this]() {
+                return !(this->workerProcessing) && !(this->beingExpired);
+            });
 
-                // wait for the condition variable
-                this->cloudConditionVariable.wait(lock, [this]() {
-                    return this->cloudReady;
-                });
+            this->beingExpired = true;
 
-                this->cloudReady = false;
+            // remove the points with the label
+            this->mergedCloud.removePointsWithLabels(labels);
 
-                // remove the points with the label
-                this->mergedCloud.removePointsWithLabels(labels);
+            std::cout << "[INTER] Removed points (" << labels.size() << " clouds)" << std::endl;
 
-                this->cloudReady = true;
-            }
+            this->beingExpired = false;
+            this->readyToConsume = true;
+        }
 
-            this->cloudConditionVariable.notify_one();
-        });
-        pointRemovingThread.detach();
+        this->cloudConditionVariable.notify_one();
     }
 
     void InterSensorManager::addSensorPointCloud(entities::StampedPointCloud cloud,
@@ -281,6 +283,24 @@ namespace pcl_aggregator::managers {
         return val;
     }
 
+    double InterSensorManager::getIntraSensorAverageLatency() {
+
+        double val;
+
+        // TODO
+
+        return val;
+    }
+
+    double InterSensorManager::getIntraSensorStdDev() {
+
+        double val;
+
+        // TODO
+
+        return val;
+    }
+
     void InterSensorManager::workersLoop() {
 
         while(true) {
@@ -318,16 +338,19 @@ namespace pcl_aggregator::managers {
 
                 // wait for the point cloud condition variable
                 this->cloudConditionVariable.wait(lock, [this]() {
-                    return this->cloudReady;
+                    return !(this->workerProcessing) && !(this->beingExpired);
                 });
 
-                this->cloudReady = false;
+                this->workerProcessing = true;
 
                 // register the point cloud
                 this->mergedCloud.registerPointCloud(newCloud.getPointCloud());
 
-                this->cloudReady = true;
+                this->workerProcessing = false;
+                this->readyToConsume = true;
             }
+
+            // std::cout << "[INTER] Registered new point cloud" << std::endl;
 
             // notify next waiting thread
             this->cloudConditionVariable.notify_one();

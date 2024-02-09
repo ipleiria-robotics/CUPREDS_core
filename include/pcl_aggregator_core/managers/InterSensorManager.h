@@ -88,8 +88,14 @@ namespace pcl_aggregator::managers {
             /*! \brief Condition variable to protect access to the merged PointCloud pointer. */
             std::condition_variable cloudConditionVariable;
 
-            /*! \brief Is the merged PointCloud ready to be accessed. */
-            bool cloudReady = true;
+            /*! \brief Is any worker processing the point cloud? */
+            bool workerProcessing = false;
+
+            /*! \brief Is a new version of the point cloud ready to be consumed? */
+            bool readyToConsume = false;
+
+            /*! \brief Is the age watcher removing points? */
+            bool beingExpired = false;
 
             /*! \breif The vector of inter-sensor workers doing sensor registration. */
             std::vector<std::thread> workers;
@@ -184,7 +190,13 @@ namespace pcl_aggregator::managers {
              */
             void setTransform(const Eigen::Affine3d& transform, const std::string& topicName);
 
-            pcl::PointCloud<pcl::PointXYZRGBL> getMergedCloud();
+            /*! \brief Get the merged point cloud for publishing.
+             * 
+             * @param consume Mark the point cloud as consumed until a now one is produced.
+             * 
+             * @return The merged point cloud, or wait for a new one until ready.
+             */
+            pcl::PointCloud<pcl::PointXYZRGBL> getMergedCloud(bool consume=true);
 
             /*! \brief Get the average time elapsed between point cloud arrival and delivery. */
             double getAverageRegistrationTime();
@@ -199,6 +211,12 @@ namespace pcl_aggregator::managers {
              * This is also the number of point clouds already contributed to the average and variance of registration time.
              */
             size_t getSampleCount();
+
+            /*! \brief TODO Get the intra-sensor average latency. */
+            double getIntraSensorAverageLatency();
+
+            /*! \brief TODO Get intra-sensor standar deviation latency. */
+            double getIntraSensorStdDev();
 
             void workersLoop();
 

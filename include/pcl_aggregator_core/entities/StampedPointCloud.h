@@ -38,8 +38,8 @@
 
 #define POINTCLOUD_ORIGIN_NONE "none"
 
-#define MAX_CORRESPONDENCE_DISTANCE 0.2f
-#define MAX_ICP_ITERATIONS 5
+#define MAX_CORRESPONDENCE_DISTANCE 0.5f
+#define MAX_ICP_ITERATIONS 2
 #define ICP_DOWNSAMPLE_SIZE 0.1f
 
 namespace pcl_aggregator::entities {

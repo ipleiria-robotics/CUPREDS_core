@@ -35,9 +35,10 @@ namespace pcl_aggregator::managers {
         this->maxAge = maxAge;
 
         // start the age watcher thread
+        /*
         this->maxAgeWatcherThread = std::thread(&IntraSensorManager::ageWatcherLoop, this);
         pthread_setname_np(this->maxAgeWatcherThread.native_handle(), "maxAgeWatcherThread");
-        this->maxAgeWatcherThread.detach();
+        this->maxAgeWatcherThread.detach();*/
 
         // start the workers
         for(size_t i = 0; i < NUM_INTRA_SENSOR_WORKERS; i++) {
@@ -103,7 +104,7 @@ namespace pcl_aggregator::managers {
             this->cloudReady = false;
 
             // remove points with that label from the merged pointcloud
-            this->cloud->removePointsWithLabel(label);
+            // this->cloud->removePointsWithLabel(label);
 
             // iterate the set
             for (auto &c: this->clouds) {
@@ -150,7 +151,7 @@ namespace pcl_aggregator::managers {
             });
 
             // remove all points marked for removal
-            this->cloud->removePointsWithLabels(labelsToRemove);
+            // this->cloud->removePointsWithLabels(labelsToRemove);
 
             this->cloudReady = true;
 
@@ -209,29 +210,6 @@ namespace pcl_aggregator::managers {
             this->cloudsNotRegisteredCond.notify_one();
         }
 
-    }
-
-    pcl::PointCloud<pcl::PointXYZRGBL> IntraSensorManager::getCloud() {
-
-        pcl::PointCloud<pcl::PointXYZRGBL> result;
-
-        {
-            // create the unique_lock
-            std::unique_lock lock(this->cloudMutex);
-
-            this->cloudConditionVariable.wait(lock, [this]() {
-                return this->cloudReady;
-            });
-
-            // assign the value to the variable
-            result = *(this->cloud->getPointCloud());
-        }
-
-        // notify the next thread in queue
-        this->cloudConditionVariable.notify_one();
-
-        // return the pointcloud
-        return result;
     }
 
     void IntraSensorManager::setSensorTransform(const Eigen::Affine3d &transform) {
@@ -310,21 +288,23 @@ namespace pcl_aggregator::managers {
                 this->cloudReady = false;
 
                 // register the point cloud
-                this->cloud->registerPointCloud(cloudToRegister->getPointCloud());
+                // this->cloud->registerPointCloud(cloudToRegister->getPointCloud());
+
+                // get the point cloud
+                spcl.setPointCloudValue(*(cloudToRegister->getPointCloud()));
 
                 // clear the points, will be no longer needed
                 cloudToRegister->getPointCloud()->clear();
-                
+              
                 // finally add the point cloud to the set
                 this->clouds.insert(std::move(cloudToRegister));
 
                 this->cloudReady = true;
-
-                // get the point cloud
-                spcl.setPointCloudValue(*(this->cloud->getPointCloud()));
             }
 
             this->cloudConditionVariable.notify_one();
+
+            // std::cout << "[INTRA] Processed new point cloud" << std::endl;
 
             // measure the time difference between capture and now
             auto now = utils::Utils::getCurrentTimeMillis();
@@ -372,6 +352,8 @@ namespace pcl_aggregator::managers {
             } else {
                 throw std::runtime_error("Point ageing callback not set!");
             }
+
+            std::cout << "[INTRA] Removing points (" << labelsToRemove.size() << " clouds)" << std::endl;
 
             // clear the labels set
             labelsToRemove.clear();
