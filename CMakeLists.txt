@@ -10,6 +10,11 @@ project(pcl_aggregator_core LANGUAGES C CXX CUDA)
 set(CMAKE_CXX_STANDARD 20)
 
 set(USE_CUDA ON)
+set(USE_ICP ON)
+
+if(USE_ICP)
+    add_compile_definitions(USE_ICP)
+endif()
 
 find_package(PCL REQUIRED) # to process pointclouds
 find_package(OpenCV REQUIRED) # to process image

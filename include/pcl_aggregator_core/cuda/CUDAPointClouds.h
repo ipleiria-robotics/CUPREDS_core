@@ -23,6 +23,7 @@
 
  */
 
+#ifdef USE_CUDA
 #ifndef PCL_AGGREGATOR_CORE_CUDA_POINTCLOUDS_H
 #define PCL_AGGREGATOR_CORE_CUDA_POINTCLOUDS_H
 
@@ -99,3 +100,4 @@ namespace pcl_aggregator {
 } // cuda
 
 #endif //PCL_AGGREGATOR_CORE_CUDA_POINTCLOUDS_H
+#endif

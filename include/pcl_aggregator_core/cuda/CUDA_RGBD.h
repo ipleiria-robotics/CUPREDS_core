@@ -23,6 +23,7 @@
 
  */
 
+#ifdef USE_CUDA
 #ifndef PCL_AGGREGATOR_CORE_CUDA_RGBD_CUH
 #define PCL_AGGREGATOR_CORE_CUDA_RGBD_CUH
 
@@ -74,3 +75,4 @@ namespace pcl_aggregator {
 } // cuda
 
 #endif //PCL_AGGREGATOR_CORE_CUDA_RGBD_CUH
+#endif

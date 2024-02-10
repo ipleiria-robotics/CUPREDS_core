@@ -121,7 +121,13 @@ namespace pcl_aggregator::entities {
     void StampedPointCloud::assignLabelToPointCloud(const typename pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, std::uint32_t label) {
 
         if(cloud != nullptr) {
+            #ifdef USE_CUDA
             cuda::pointclouds::setPointCloudLabelCuda(cloud, label);
+            #else
+            for(auto& p : cloud->points) {
+                p.label = label;
+            }
+            #endif
         } else {
             std::cerr << "StampedPointCloud::assignLabelToPointCloud: cloud is null!" << std::endl;
         }
@@ -225,7 +231,7 @@ namespace pcl_aggregator::entities {
             return;
         }
 
-        /*
+        #ifdef USE_ICP
         // if none of the point clouds are empty, do the registration
         pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
@@ -245,7 +251,8 @@ namespace pcl_aggregator::entities {
             icp.setInputTarget(newCloud);
             // transform this->cloud
             icp.align(*this->cloud);
-        }*/
+        }
+        #endif
 
         // merge the point clouds after registration
         #ifdef USE_CUDA
