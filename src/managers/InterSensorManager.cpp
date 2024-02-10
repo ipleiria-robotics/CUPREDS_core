@@ -81,6 +81,8 @@ namespace pcl_aggregator::managers {
             // wait for the mutex
             std::unique_lock<std::mutex> lock(this->cloudMutex);
 
+            // std::cout << "[INTER] Waiting in getter" << std::endl;
+
             // wait for the condition variable
             this->cloudConditionVariable.wait(lock, [this] { return this->readyToConsume; });
 
@@ -114,7 +116,7 @@ namespace pcl_aggregator::managers {
             this->cloudsToRemove.push_front(labels);
         }
 
-        std::cout << "[INTER] Scheduling clouds to remove" << std::endl;
+        // std::cout << "[INTER] Scheduling clouds to remove" << std::endl;
 
         // notify the removal worker
         this->cloudsToRemoveCond.notify_one();
@@ -135,6 +137,8 @@ namespace pcl_aggregator::managers {
         {
             // acquire the mutex
             std::unique_lock lock(this->pendingCloudsMutex);
+
+            // std::cout << "[INTER] Waiting scheduling cloud" << std::endl;
 
             this->pendingCloudsCond.wait(lock, [this]() {
                 return this->pendingCloudsQueue.size() < MAX_WORKER_QUEUE_LEN;
@@ -323,6 +327,8 @@ namespace pcl_aggregator::managers {
                 // acquire the queue mutex
                 std::unique_lock lock(this->pendingCloudsMutex);
 
+                // std::cout << "[INTER] Waiting for queue in worker" << std::endl;
+
                 // wait for an entry to be available / stop if signaled
                 this->pendingCloudsCond.wait(lock, [this]() {
                     return !this->pendingCloudsQueue.empty() || this->workersShouldStop;
@@ -348,6 +354,8 @@ namespace pcl_aggregator::managers {
                 // lock the point cloud mutex
                 std::unique_lock lock(this->cloudMutex);
 
+                // std::cout << "[INTER] Waiting to add points" << std::endl;
+
                 // wait for the point cloud condition variable
                 this->cloudConditionVariable.wait(lock, [this]() {
                     return !(this->workerProcessing) && !(this->beingExpired);
@@ -362,7 +370,7 @@ namespace pcl_aggregator::managers {
                 this->readyToConsume = true;
             }
 
-            // std::cout << "[INTER] Registered new point cloud" << std::endl;
+            std::cout << "[INTER] Registered new point cloud" << std::endl;
 
             // notify next waiting thread
             this->cloudConditionVariable.notify_one();
@@ -394,11 +402,13 @@ namespace pcl_aggregator::managers {
 
         while(true) {
 
-            std::cout << "[INTER] Removal loop" << std::endl;
+            // std::cout << "[INTER] Removal loop" << std::endl;
 
             {
                 // acquire the queue mutex
                 std::unique_lock lock(this->cloudsToRemoveMutex);
+
+                // std::cout << "[INTER] Waiting to pick clouds to remove" << std::endl;
 
                 // wait for the condition variable
                 // wait to have at least one point cloud to remove
@@ -409,10 +419,13 @@ namespace pcl_aggregator::managers {
                 if(this->workersShouldStop)
                     return;
 
-                // pick one batch from the queue
-                // FIFO queue: pick from the tail
-                labelsToRemove = this->cloudsToRemove.back();
-                this->cloudsToRemove.pop_back(); // remove from the queue
+                // pick all point clouds
+                // the whole point cloud will be iterated either way. more efficient to empty the queue
+                while(!(this->cloudsToRemove.empty())) {
+                    std::set<std::uint32_t> temp = this->cloudsToRemove.back();
+                    labelsToRemove.insert(temp.begin(), temp.end());
+                    this->cloudsToRemove.pop_back(); // remove from the queue    
+                }                
             }
 
             // notify threads waiting to access the removal queue
@@ -421,6 +434,8 @@ namespace pcl_aggregator::managers {
             {
                 // acquire the point cloud mutex
                 std::unique_lock lock(this->cloudMutex);
+
+                // std::cout << "[INTER] Waiting to remove points" << std::endl;
 
                 // wait for the condition variable
                 // nor the workers or age watchers can be manipulating

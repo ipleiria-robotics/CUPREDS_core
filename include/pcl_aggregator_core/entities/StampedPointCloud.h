@@ -31,6 +31,7 @@
 #include <pcl/registration/icp.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/common/transforms.h>
+#include <pcl/filters/extract_indices.h>
 #include <eigen3/Eigen/Dense>
 #include <cstdint>
 #include <set>

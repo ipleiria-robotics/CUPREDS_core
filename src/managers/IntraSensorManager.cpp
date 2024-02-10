@@ -352,7 +352,7 @@ namespace pcl_aggregator::managers {
                 throw std::runtime_error("Point ageing callback not set!");
             }
 
-            std::cout << "[INTRA] Removing points (" << labelsToRemove.size() << " clouds)" << std::endl;
+            // std::cout << "[INTRA] Removing points (" << labelsToRemove.size() << " clouds)" << std::endl;
 
             // clear the labels set
             labelsToRemove.clear();

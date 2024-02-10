@@ -176,15 +176,21 @@ namespace pcl_aggregator::entities {
 
     void StampedPointCloud::removePointsWithLabels(const std::set<std::uint32_t> &labels) {
 
-        auto it = this->cloud->begin();
-        while (it != this->cloud->end()) {
-            // if the label is in the set, remove it
-            if (labels.find(it->label) != labels.end()) {
-                it = this->cloud->erase(it);
-            } else {
-                ++it;
+        pcl::PointIndices::Ptr indicesToRemove(new pcl::PointIndices);
+
+        for (size_t i = 0; i < cloud->points.size(); ++i) {
+            if (labels.find(this->cloud->points[i].label) != labels.end()) {
+                indicesToRemove->indices.push_back(i);
             }
         }
+
+        pcl::ExtractIndices<pcl::PointXYZRGBL> extract;
+        extract.setInputCloud(this->cloud);
+        extract.setIndices(indicesToRemove);
+        extract.setNegative(true); // Keep points not in indices
+
+        // Filter the point cloud
+        extract.filter(*(this->cloud));
     }
 
     void StampedPointCloud::downsample(float leafSize) {
