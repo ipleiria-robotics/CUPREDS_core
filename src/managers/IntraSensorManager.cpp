@@ -313,15 +313,17 @@ namespace pcl_aggregator::managers {
                 // acquire the mutex
                 std::unique_lock lock(this->statisticsMutex);
 
-                // contribute to the average and variance
-                double delta = (double) diff - this->avgRegistrationTimeMs;
-                (this->registrationTimeSampleCount)++;
+                // use welford's method to update the statistics
+                double delta = diff - this->avgRegistrationTimeMs;
+                this->avgRegistrationTimeMs += delta / (this->registrationTimeSampleCount + 1);
+                this->meanSquaredRegistrationTimeMs += delta * (diff - this->avgRegistrationTimeMs);
 
-                this->avgRegistrationTimeMs =
-                        this->avgRegistrationTimeMs + delta / (double) this->registrationTimeSampleCount;
-                if (this->registrationTimeSampleCount >= 2)
-                    this->varRegistrationTimeMs =
-                            this->varRegistrationTimeMs + delta * ((double) diff - this->avgRegistrationTimeMs);
+                // update the variance
+                if(this->registrationTimeSampleCount >= 2)
+                    this->varRegistrationTimeMs = this->meanSquaredRegistrationTimeMs / (this->registrationTimeSampleCount - 1);
+
+                // increment the sample count
+                this->registrationTimeSampleCount++;
             }
 
             // call the InterSensorManager-defined callback

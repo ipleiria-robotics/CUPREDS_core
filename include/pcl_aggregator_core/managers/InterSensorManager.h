@@ -143,6 +143,9 @@ namespace pcl_aggregator::managers {
             /*! \brief Number of samples contributing to the registration time statistics. */
             size_t registrationTimeSampleCount = 0;
 
+            /*! \brief Current mean squared of the registration time. */
+            double meanSquaredRegistrationTimeMs = 0.0f;
+
             /*! \brief InterSensorManager constructor.
              *
              * @param nSources Number of sensors to manage.
@@ -231,10 +234,10 @@ namespace pcl_aggregator::managers {
              */
             size_t getSampleCount();
 
-            /*! \brief TODO Get the intra-sensor average latency. */
+            /*! \brief Get the intra-sensor average latency. */
             double getIntraSensorAverageLatency();
 
-            /*! \brief TODO Get intra-sensor standar deviation latency. */
+            /*! \brief Get intra-sensor standar deviation latency. */
             double getIntraSensorStdDev();
 
     };

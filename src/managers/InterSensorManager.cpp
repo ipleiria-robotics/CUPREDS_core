@@ -303,7 +303,16 @@ namespace pcl_aggregator::managers {
 
         double val;
 
-        // TODO
+        {
+            // iterate over all the stream managers
+            std::lock_guard<std::mutex> lock(this->managersMutex);
+
+            for(auto& streamManager : this->streamManagers) {
+                val += streamManager.second->getAverageRegistrationTime();
+            }
+
+            val /= this->streamManagers.size();
+        }
 
         return val;
     }
@@ -312,7 +321,16 @@ namespace pcl_aggregator::managers {
 
         double val;
 
-        // TODO
+        {
+            // iterate over all the stream managers
+            std::lock_guard<std::mutex> lock(this->managersMutex);
+
+            for(auto& streamManager : this->streamManagers) {
+                val += streamManager.second->getStdDevRegistrationTime();
+            }
+
+            val /= this->streamManagers.size();
+        }
 
         return val;
     }
@@ -382,15 +400,17 @@ namespace pcl_aggregator::managers {
                 // acquire the mutex
                 std::unique_lock lock(this->statisticsMutex);
 
-                // update the statistics
-                double delta = (double) diff - this->avgRegistrationTimeMs;
-                (this->registrationTimeSampleCount)++;
+                // use welford's method to update the statistics
+                double delta = diff - this->avgRegistrationTimeMs;
+                this->avgRegistrationTimeMs += delta / (this->registrationTimeSampleCount + 1);
+                this->meanSquaredRegistrationTimeMs += delta * (diff - this->avgRegistrationTimeMs);
 
-                this->avgRegistrationTimeMs =
-                        this->avgRegistrationTimeMs + delta / (double) this->registrationTimeSampleCount;
+                // update the variance
                 if(this->registrationTimeSampleCount >= 2)
-                    this->varRegistrationTimeMs =
-                            this->varRegistrationTimeMs + delta * ((double) diff - this->avgRegistrationTimeMs);
+                    this->varRegistrationTimeMs = this->meanSquaredRegistrationTimeMs / (this->registrationTimeSampleCount - 1);
+
+                // increment the sample count
+                this->registrationTimeSampleCount++;
             }
         }
 

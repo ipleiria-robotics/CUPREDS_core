@@ -127,6 +127,9 @@ namespace pcl_aggregator::managers {
             /*! \brief Variance of the time needed to process a point cloud from being received to being output. */
             double varRegistrationTimeMs = 0.0f;
 
+            /*! \brief Current mean squared of the registration time. */
+            double meanSquaredRegistrationTimeMs = 0.0f;
+
             /*! \brief Number of samples contributing to the registration time statistics. */
             size_t registrationTimeSampleCount = 0;
 
