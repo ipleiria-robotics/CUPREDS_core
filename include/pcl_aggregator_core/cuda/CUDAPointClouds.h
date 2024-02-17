@@ -51,7 +51,7 @@ namespace pcl_aggregator {
              *
              * @returns Zero on success, a negative number on error.
              */
-            __host__ int transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const Eigen::Affine3d& transform);
+            __host__ int transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const Eigen::Matrix4f& transform);
 
             /*! \brief Concatenate the points of cloud2 into cloud1.
              *
@@ -81,7 +81,7 @@ namespace pcl_aggregator {
              *
              * @returns Zero on success, a negative number on error.
              */
-            __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4d transform, int num_points);
+            __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4f transform, int num_points);
 
             /*! \brief The kernel which concatenates a point on cloud2 to cloud1.
              *

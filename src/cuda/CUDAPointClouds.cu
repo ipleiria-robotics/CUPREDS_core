@@ -103,7 +103,7 @@ namespace pcl_aggregator {
                 }
             }
 
-            __host__ int transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const Eigen::Affine3d& tf) {
+            __host__ int transformPointCloudCuda(const pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, const Eigen::Matrix4f& tf) {
 
                 cudaError_t err = cudaSuccess;
                 cudaStream_t stream;
@@ -136,7 +136,7 @@ namespace pcl_aggregator {
                 // call the kernel
                 dim3 block(512);
                 dim3 grid((cloud->size() + block.x - 1) / block.x);
-                transformPointKernel<<<grid, block, 0, stream>>>(d_cloud, tf.matrix(), cloud->size());
+                transformPointKernel<<<grid, block, 0, stream>>>(d_cloud, tf, cloud->size());
 
                 // wait for the stream
                 if ((err = cudaStreamSynchronize(stream)) != cudaSuccess) {
@@ -168,10 +168,10 @@ namespace pcl_aggregator {
                 return 0;
             }
 
-            __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4d transform, int num_points) {
+            __global__ void transformPointKernel(pcl::PointXYZRGBL *points, Eigen::Matrix4f transform, int num_points) {
                 std::size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
                 if (idx < num_points) {
-                    Eigen::Vector4d p(points[idx].x, points[idx].y, points[idx].z, 1.0f);
+                    Eigen::Vector4f p((float) points[idx].x, (float) points[idx].y, (float) points[idx].z, 1.0f);
                     p = transform * p;
                     points[idx].x = p(0);
                     points[idx].y = p(1);

@@ -152,8 +152,12 @@ namespace pcl_aggregator::entities {
         if(this->cloud != nullptr) {
 
             #ifdef USE_CUDA
+
+            // cast the Eigen::Affine3d to Eigen::Matrix4f
+            Eigen::Matrix4f transform = tf.matrix().cast<float>();
+
             // call a CUDA thread to transform the pointcloud in-place
-            if(cuda::pointclouds::transformPointCloudCuda(this->cloud, tf) < 0) {
+            if(cuda::pointclouds::transformPointCloudCuda(this->cloud, transform) < 0) {
                 throw std::runtime_error("Error transforming the pointcloud using CUDA");
             }
             #else
@@ -271,6 +275,7 @@ namespace pcl_aggregator::entities {
             if(!thisAsCenter) {
 
                 #ifdef USE_CUDA
+
                 // revert the transform to put the origin on the new point cloud
                 cuda::pointclouds::transformPointCloudCuda(this->cloud, transformation.inverse());
                 #else
