@@ -255,6 +255,33 @@ namespace pcl_aggregator::entities {
             // transform this->cloud
             icp.align(*this->cloud);
         }
+
+        // the incoming point cloud is transformed for performance reasons
+        icp.setInputSource(newCloud);
+        icp.setInputTarget(this->cloud);
+        // transform newCloud
+        icp.align(*newCloud);
+
+        if (icp.hasConverged()) {
+
+            // the transformation matrix
+            Eigen::Matrix4f transformation = icp.getFinalTransformation();
+
+            // the new point cloud will become the origin of the frame
+            if(!thisAsCenter) {
+
+                #ifdef USE_CUDA
+                // revert the transform to put the origin on the new point cloud
+                cuda::pointclouds::transformPointCloudCuda(this->cloud, transformation.inverse());
+                #else
+                // revert the transform to put the origin on the new point cloud
+                pcl::transformPointCloud(*this->cloud, *this->cloud, transformation.inverse());
+                #endif
+            }
+
+        } else {
+            std::cerr << "ICP did not converge" << std::endl;
+        }
         #endif
 
         // merge the point clouds after registration
