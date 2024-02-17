@@ -381,6 +381,9 @@ namespace pcl_aggregator::managers {
 
                 this->workerProcessing = true;
 
+                // downsample the point cloud to standardize and reduce the amount of points
+                newCloud.downsample(ICP_DOWNSAMPLE_SIZE);
+
                 // register the point cloud
                 this->mergedCloud.registerPointCloud(newCloud.getPointCloud());
 

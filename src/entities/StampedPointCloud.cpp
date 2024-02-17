@@ -197,6 +197,9 @@ namespace pcl_aggregator::entities {
 
         // Filter the point cloud
         extract.filter(*(this->cloud));
+
+        // downsample to standardize
+        this->downsample(ICP_DOWNSAMPLE_SIZE);
     }
 
     void StampedPointCloud::downsample(float leafSize) {
@@ -267,6 +270,7 @@ namespace pcl_aggregator::entities {
         *(this->cloud) += *newCloud;
         #endif
 
+        // downsample to standardize and reduce the number of points
         this->downsample(ICP_DOWNSAMPLE_SIZE);
     }
 } // pcl_aggregator::entities
