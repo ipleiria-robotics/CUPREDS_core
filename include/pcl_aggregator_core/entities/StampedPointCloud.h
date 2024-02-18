@@ -29,6 +29,7 @@
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl/registration/icp.h>
+#include <pcl/registration/ndt.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/common/transforms.h>
 #include <pcl/filters/extract_indices.h>
@@ -40,8 +41,13 @@
 #define POINTCLOUD_ORIGIN_NONE "none"
 
 #define MAX_CORRESPONDENCE_DISTANCE 0.1f
-#define MAX_ICP_ITERATIONS 5
+#define MAX_ICP_ITERATIONS 10
 #define ICP_DOWNSAMPLE_SIZE 0.1f
+
+#define NDT_TRANSFORMATION_EPSILON 0.01f
+#define NDT_STEP_SIZE 0.1f
+#define NDT_RESOLUTION 1.0f
+#define NDT_MAX_ITERATIONS 10
 
 namespace pcl_aggregator::entities {
 

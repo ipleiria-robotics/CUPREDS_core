@@ -10,9 +10,11 @@ project(pcl_aggregator_core LANGUAGES C CXX CUDA)
 set(CMAKE_CXX_STANDARD 20)
 
 set(USE_CUDA ON)
-set(USE_ICP ON)
+set(REGISTRATION_METHOD "NDT") # "NDT" or "ICP". otherwise remove this line
 
-if(USE_ICP)
+if(REGISTRATION_METHOD STREQUAL "NDT")
+    add_compile_definitions(USE_NDT)
+elseif(REGISTRATION_METHOD STREQUAL "ICP")
     add_compile_definitions(USE_ICP)
 endif()
 

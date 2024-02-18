@@ -242,34 +242,25 @@ namespace pcl_aggregator::entities {
         // if none of the point clouds are empty, do the registration
         pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
 
+        pcl::PointCloud<pcl::PointXYZRGBL>::Ptr outputCloud(new pcl::PointCloud<pcl::PointXYZRGBL>);
+
         // set ICP convergence parameters
         icp.setMaxCorrespondenceDistance(MAX_CORRESPONDENCE_DISTANCE);
         icp.setMaximumIterations(MAX_ICP_ITERATIONS);
 
-        if(thisAsCenter) {
-            // the incoming point cloud is transformed
-            icp.setInputSource(newCloud);
-            icp.setInputTarget(this->cloud);
-            // transform newCloud
-            icp.align(*newCloud);
-        } else {
-            // this point cloud is transformed
-            icp.setInputSource(this->cloud);
-            icp.setInputTarget(newCloud);
-            // transform this->cloud
-            icp.align(*this->cloud);
-        }
-
         // the incoming point cloud is transformed for performance reasons
         icp.setInputSource(newCloud);
         icp.setInputTarget(this->cloud);
-        // transform newCloud
-        icp.align(*newCloud);
+        // do the registration
+        icp.align(*outputCloud);
 
         if (icp.hasConverged()) {
 
             // the transformation matrix
             Eigen::Matrix4f transformation = icp.getFinalTransformation();
+
+            // assign the output cloud to this cloud
+            *(this->cloud) = *outputCloud;
 
             // the new point cloud will become the origin of the frame
             if(!thisAsCenter) {
@@ -287,6 +278,49 @@ namespace pcl_aggregator::entities {
         } else {
             std::cerr << "ICP did not converge" << std::endl;
         }
+
+        #elif USE_NDT
+
+        // if none of the point clouds are empty, do the registration
+        pcl::NormalDistributionsTransform<pcl::PointXYZRGBL,pcl::PointXYZRGBL> ndt;
+
+        // set NDT convergence parameters
+        ndt.setTransformationEpsilon(NDT_TRANSFORMATION_EPSILON);
+        ndt.setStepSize(NDT_STEP_SIZE);
+        ndt.setResolution(NDT_RESOLUTION);
+        ndt.setMaximumIterations(NDT_MAX_ITERATIONS);
+
+        ndt.setInputSource(newCloud);
+        ndt.setInputTarget(this->cloud);
+
+        pcl::PointCloud<pcl::PointXYZRGBL>::Ptr outputCloud(new pcl::PointCloud<pcl::PointXYZRGBL>);
+        ndt.align(*outputCloud);
+
+        if(ndt.hasConverged()) {
+
+            // the transformation matrix
+            Eigen::Matrix4f transformation = ndt.getFinalTransformation();
+
+            // assign the output cloud to this cloud
+            *(this->cloud) = *outputCloud;
+
+            // the new point cloud will become the origin of the frame
+            if(!thisAsCenter) {
+
+                #ifdef USE_CUDA
+
+                // revert the transform to put the origin on the new point cloud
+                cuda::pointclouds::transformPointCloudCuda(this->cloud, transformation.inverse());
+                #else
+                // revert the transform to put the origin on the new point cloud
+                pcl::transformPointCloud(*this->cloud, *this->cloud, transformation.inverse());
+                #endif
+            }
+
+        } else {
+            std::cerr << "NDT did not converge" << std::endl;
+        }
+
         #endif
 
         // merge the point clouds after registration
@@ -300,6 +334,7 @@ namespace pcl_aggregator::entities {
         #else
         // concatenate using CPU
         *(this->cloud) += *newCloud;
+
         #endif
 
         // downsample to standardize and reduce the number of points
