@@ -35,6 +35,9 @@ namespace pcl_aggregator::managers {
 
         this->maxAge = maxAge;
 
+        // initialize odom to the identity matrix
+        this->odom = Eigen::Matrix4f::Identity();
+
         // create the workers
         this->workersShouldStop = false;
         for(size_t i = 0; i < NUM_INTER_SENSOR_WORKERS; i++) {
@@ -98,6 +101,27 @@ namespace pcl_aggregator::managers {
         this->cloudConditionVariable.notify_one();
 
         return tmp;
+    }
+
+    Eigen::Matrix4f InterSensorManager::getOdometry() {
+
+        Eigen::Matrix4f currOdom;
+
+        {
+            // acquire the mutex
+            std::unique_lock lock(this->odomMutex);
+
+            // wait for the condition variable
+            this->odomConditionVariable.wait(lock, [this]() {
+                return !(this->processingOdom);
+            });
+
+        }
+
+        // notify next thread waiting
+        this->odomConditionVariable.notify_one();
+
+        return currOdom;
     }
 
     void InterSensorManager::removePointsByLabel(const std::set<std::uint32_t>& labels) {
@@ -368,6 +392,12 @@ namespace pcl_aggregator::managers {
             // notify next waiting thread
             this->pendingCloudsCond.notify_one();
 
+            // downsample the point cloud to standardize and reduce the amount of points
+            newCloud.downsample(DOWNSAMPLE_SIZE);
+
+            // new odometry value to be assigned
+            Eigen::Matrix4f newOdom;
+
             {
                 // lock the point cloud mutex
                 std::unique_lock lock(this->cloudMutex);
@@ -381,14 +411,32 @@ namespace pcl_aggregator::managers {
 
                 this->workerProcessing = true;
 
-                // downsample the point cloud to standardize and reduce the amount of points
-                newCloud.downsample(ICP_DOWNSAMPLE_SIZE);
 
                 // register the point cloud
-                this->mergedCloud.registerPointCloud(newCloud.getPointCloud());
+                newOdom = this->mergedCloud.registerPointCloud(newCloud.getPointCloud());
+
+                this->processingOdom = false;
 
                 this->workerProcessing = false;
                 this->readyToConsume = true;
+            }
+
+            // update odometry
+            {
+                // acquire the mutex
+                std::unique_lock lock(this->odomMutex);
+
+                // wait for the condition variable
+                this->odomConditionVariable.wait(lock, [this]() {
+                    return !(this->processingOdom);
+                });
+
+                this->processingOdom = true;
+
+                this->odom *= newOdom.inverse();
+
+                this->processingOdom = false;
+
             }
 
             std::cout << "[INTER] Registered new point cloud" << std::endl;

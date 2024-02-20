@@ -203,7 +203,7 @@ namespace pcl_aggregator::entities {
         extract.filter(*(this->cloud));
 
         // downsample to standardize
-        this->downsample(ICP_DOWNSAMPLE_SIZE);
+        this->downsample(DOWNSAMPLE_SIZE);
     }
 
     void StampedPointCloud::downsample(float leafSize) {
@@ -214,11 +214,14 @@ namespace pcl_aggregator::entities {
         voxelGrid.filter(*this->cloud);
     }
 
-    void StampedPointCloud::registerPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& newCloud, bool thisAsCenter) {
+    Eigen::Matrix4f StampedPointCloud::registerPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& newCloud, bool thisAsCenter) {
+
+        // declare the transformation matrix
+        Eigen::Matrix4f transformation = Eigen::Matrix4f::Identity();
 
         // if the new point cloud is empty, not need to further processing
         if(newCloud->empty())
-            return;
+            return transformation;
 
         // if this point cloud is empty, it can just become the new
         if(this->cloud->empty()) {
@@ -235,8 +238,9 @@ namespace pcl_aggregator::entities {
             // concatenate using CPU
             *(this->cloud) += *newCloud;
             #endif
-            return;
+            return transformation;
         }
+
 
         #ifdef USE_ICP
         // if none of the point clouds are empty, do the registration
@@ -248,22 +252,22 @@ namespace pcl_aggregator::entities {
         icp.setMaxCorrespondenceDistance(MAX_CORRESPONDENCE_DISTANCE);
         icp.setMaximumIterations(MAX_ICP_ITERATIONS);
 
-        // the incoming point cloud is transformed for performance reasons
+        // align the incoming point cloud to the current one
         icp.setInputSource(newCloud);
         icp.setInputTarget(this->cloud);
-        // do the registration
+        // do the registration and put the result in "outputCloud"
         icp.align(*outputCloud);
 
         if (icp.hasConverged()) {
 
             // the transformation matrix
-            Eigen::Matrix4f transformation = icp.getFinalTransformation();
-
-            // assign the output cloud to this cloud
-            *(this->cloud) = *outputCloud;
+            transformation = icp.getFinalTransformation();
 
             // the new point cloud will become the origin of the frame
             if(!thisAsCenter) {
+
+                // the incoming point cloud will remain not transformed
+                // instead, the current point cloud suffers the inverse transform
 
                 #ifdef USE_CUDA
 
@@ -273,6 +277,10 @@ namespace pcl_aggregator::entities {
                 // revert the transform to put the origin on the new point cloud
                 pcl::transformPointCloud(*this->cloud, *this->cloud, transformation.inverse());
                 #endif
+            } else {
+
+                // the incoming point cloud is transformed to align with the current
+                *newCloud = *outputCloud;
             }
 
         } else {
@@ -299,10 +307,7 @@ namespace pcl_aggregator::entities {
         if(ndt.hasConverged()) {
 
             // the transformation matrix
-            Eigen::Matrix4f transformation = ndt.getFinalTransformation();
-
-            // assign the output cloud to this cloud
-            *(this->cloud) = *outputCloud;
+            transformation = ndt.getFinalTransformation();
 
             // the new point cloud will become the origin of the frame
             if(!thisAsCenter) {
@@ -315,6 +320,9 @@ namespace pcl_aggregator::entities {
                 // revert the transform to put the origin on the new point cloud
                 pcl::transformPointCloud(*this->cloud, *this->cloud, transformation.inverse());
                 #endif
+            } {
+
+                *newCloud = *outputCloud;
             }
 
         } else {
@@ -338,6 +346,9 @@ namespace pcl_aggregator::entities {
         #endif
 
         // downsample to standardize and reduce the number of points
-        this->downsample(ICP_DOWNSAMPLE_SIZE);
+        this->downsample(DOWNSAMPLE_SIZE);
+
+        // return the transform
+        return transformation;
     }
 } // pcl_aggregator::entities

@@ -40,14 +40,16 @@
 
 #define POINTCLOUD_ORIGIN_NONE "none"
 
-#define MAX_CORRESPONDENCE_DISTANCE 0.1f
-#define MAX_ICP_ITERATIONS 10
-#define ICP_DOWNSAMPLE_SIZE 0.1f
+#define MAX_CORRESPONDENCE_DISTANCE 1.5f
+#define MAX_ICP_ITERATIONS 35
+#define ICP_FITNESS_EPSILON 1.0f
 
-#define NDT_TRANSFORMATION_EPSILON 0.01f
+#define NDT_TRANSFORMATION_EPSILON 0.1f
 #define NDT_STEP_SIZE 0.1f
 #define NDT_RESOLUTION 1.0f
-#define NDT_MAX_ITERATIONS 10
+#define NDT_MAX_ITERATIONS 5
+
+#define DOWNSAMPLE_SIZE 0.1f
 
 namespace pcl_aggregator::entities {
 
@@ -146,8 +148,9 @@ namespace pcl_aggregator::entities {
              *
              * @param cloud The PointCloud to register.
              * @param thisAsCenter Use this instance as the center of the frame, or the oncoming?
+             * @return Transformation matrix.
              */
-            void registerPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, bool thisAsCenter = false);
+            Eigen::Matrix4f registerPointCloud(pcl::PointCloud<pcl::PointXYZRGBL>::Ptr& cloud, bool thisAsCenter = false);
 
     };
 

@@ -89,6 +89,15 @@ namespace pcl_aggregator::managers {
             /*! \brief Condition variable to protect access to the merged PointCloud pointer. */
             std::condition_variable cloudConditionVariable;
 
+            /*! \brief Mutex to control access to the odometry transform. */
+            std::mutex odomMutex;
+
+            /*! \brief Condition variable to protect access to the odometry transform. */
+            std::condition_variable odomConditionVariable;
+
+            /*! \brief Is the odometry transform being updated? */
+            bool processingOdom = false;
+
             /*! \brief Is any worker processing the point cloud? */
             bool workerProcessing = false;
 
@@ -133,6 +142,9 @@ namespace pcl_aggregator::managers {
 
             /*! \brief Mutex controlling access to the statistics variables. */
             std::mutex statisticsMutex;
+
+            /*! \brief Accumulated visual odometry. */
+            Eigen::Matrix4f odom;
 
             /*! \brief Average time elapsed since a point cloud is received and is ready to be returned, after processing. */
             double avgRegistrationTimeMs = 0.0f;
@@ -219,6 +231,9 @@ namespace pcl_aggregator::managers {
              * @return The merged point cloud, or wait for a new one until ready.
              */
             pcl::PointCloud<pcl::PointXYZRGBL> getMergedCloud(bool consume=true);
+
+            /*! \brief Get the computed odometry. */
+            Eigen::Matrix4f getOdometry();
 
             /*! \brief Get the average time elapsed between point cloud arrival and delivery. */
             double getAverageRegistrationTime();
