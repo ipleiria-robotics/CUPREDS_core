@@ -116,6 +116,8 @@ namespace pcl_aggregator::managers {
                 return !(this->processingOdom);
             });
 
+            currOdom = this->odom;
+
         }
 
         // notify next thread waiting
