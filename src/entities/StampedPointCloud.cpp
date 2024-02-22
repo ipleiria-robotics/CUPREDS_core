@@ -241,7 +241,6 @@ namespace pcl_aggregator::entities {
             return transformation;
         }
 
-
         #ifdef USE_ICP
         // if none of the point clouds are empty, do the registration
         pcl::IterativeClosestPoint<pcl::PointXYZRGBL,pcl::PointXYZRGBL> icp;
@@ -249,8 +248,9 @@ namespace pcl_aggregator::entities {
         pcl::PointCloud<pcl::PointXYZRGBL>::Ptr outputCloud(new pcl::PointCloud<pcl::PointXYZRGBL>);
 
         // set ICP convergence parameters
-        icp.setMaxCorrespondenceDistance(MAX_CORRESPONDENCE_DISTANCE);
+        icp.setMaxCorrespondenceDistance(MAX_ICP_CORRESPONDENCE_DISTANCE);
         icp.setMaximumIterations(MAX_ICP_ITERATIONS);
+        icp.setEuclideanFitnessEpsilon(ICP_FITNESS_EPSILON);
 
         // align the incoming point cloud to the current one
         icp.setInputSource(newCloud);
