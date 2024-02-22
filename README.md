@@ -9,7 +9,7 @@ Luís Conde Bento<sup>1,2</sup><br>
 
 # CUPREDS – CUDA-Accelerated, Multi-threaded Point Cloud Registration from Heterogeneous Sensors with Efficient Data Structures
 
-The is the core library of CUPREDS. There is a ROS wrapper developed, available [here](https://github.com/ipleiria-robotics/CUPREDS_ros).
+The is the core library of CUPREDS. There is a ROS wrapper implemented.
 
 This library implements all the core functionality, in case one wants to link it against another wrapper.
 
