@@ -133,6 +133,11 @@ namespace pcl_aggregator::managers {
             // lock access to the queue
             std::unique_lock lock(this->cloudsToRemoveMutex);
 
+            // wait for the condition variable
+            this->cloudsToRemoveCond.wait(lock, [this]() {
+                return this->cloudsToRemove.size() < MAX_REMOVAL_WORKER_QUEUE_LEN;
+            });
+
             // if the queue is going to get full, remove the most recent
             // pop from the head
             if(this->cloudsToRemove.size() == MAX_REMOVAL_WORKER_QUEUE_LEN - 1)
@@ -207,6 +212,11 @@ namespace pcl_aggregator::managers {
             this->pendingCloudsBySensorName[sensorName] = newEntry;
             // release ownership from this method
             newEntry.reset();
+
+            // update the queue index
+            for (size_t i = 0; i < this->pendingCloudsQueue.size(); i++) {
+                (this->pendingCloudsQueue[i]->queueIndex) = i;
+            }
         }
 
         // notify the next worker that work is available
@@ -422,6 +432,7 @@ namespace pcl_aggregator::managers {
                 this->workerProcessing = false;
                 this->readyToConsume = true;
             }
+            this->cloudConditionVariable.notify_one();
 
             // update odometry
             {
@@ -440,11 +451,9 @@ namespace pcl_aggregator::managers {
                 this->processingOdom = false;
 
             }
+            this->odomConditionVariable.notify_one();
 
             std::cout << "[INTER] Registered new point cloud" << std::endl;
-
-            // notify next waiting thread
-            this->cloudConditionVariable.notify_one();
 
             // update the statistics
             auto now = utils::Utils::getCurrentTimeMillis();
